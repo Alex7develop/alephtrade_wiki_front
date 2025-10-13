@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Wiki</title>
+    <style>
+        * {margin:0; padding:0; box-sizing:border-box; font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;}
+        body {background-color:#f5f7fa; min-height:100vh; display:flex; flex-direction:column; height:100vh;}
+
+        .container {flex:1; display:flex; flex-direction:column; height:100%;}
+
+        /* Header */
+        .header {display:flex; align-items:center; padding:20px 30px; gap:20px; background:white; border-bottom:1px solid #e0e0e0;}
+        .logo {display:flex; align-items:center; gap:10px;}
+        .logo-icon {background:#2d6cdf; color:white; width:40px; height:40px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:24px; font-weight:bold;}
+        .logo-text {font-size:28px; font-weight:bold; color:#333;}
+        .search-bar {flex:1; position:relative;}
+        .search-input {width:100%; padding:10px 15px 10px 40px; border:1px solid #d0d0d0; border-radius:8px; font-size:14px; color:#666; background:#fafafa;}
+        .search-icon {position:absolute; left:15px; top:50%; transform:translateY(-50%); color:#888; font-size:16px;}
+        .create-btn {background:#2d6cdf; color:white; padding:10px 20px; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; transition:background 0.2s;}
+        .create-btn:hover {background:#255ab8;}
+
+        /* Main content */
+        .main-content {flex:1; display:flex; overflow:hidden; min-height:0; height:100%;}
+
+        /* Sidebar */
+        .sidebar {flex-shrink:0; width:20%; padding:20px; border-right:1px solid #e0e0e0; background:#fff; overflow-y:auto;}
+        .sidebar-title {font-size:18px; font-weight:bold; margin-bottom:20px; color:#333;}
+        .folder-list {list-style:none; padding-left:0;}
+        .folder-item {cursor:pointer; position:relative;}
+        .folder-item .folder-name {flex:1; display:inline-block;}
+        .folder-item .folder-icon {margin-right:6px;}
+        .folder-item .toggle-arrow {margin-right:6px; font-size:12px; transition:transform 0.2s; cursor:pointer;}
+        .folder-item:hover {background:#f5f7fa; border-radius:4px;}
+        .subfolder {list-style:none; padding-left:20px; max-height:0; overflow:hidden; transition:max-height 0.3s ease;}
+        .subfolder.expanded {max-height:500px;}
+
+        /* Files section */
+        .files-section {width:25%; padding:20px; overflow:auto; border-right:1px solid #e0e0e0; background:white;}
+        .files-title {font-size:22px; font-weight:bold; margin-bottom:15px;}
+        .files-table {width:100%; border-collapse:collapse;}
+        .files-header, .file-row {display:grid; grid-template-columns:1fr auto; padding:8px 0; align-items:center;}
+        .file-row:hover {background:#f9f9f9; cursor:pointer;}
+        .file-info {display:flex; align-items:center; gap:12px;}
+        .file-icon {width:28px; height:28px; display:flex; align-items:center; justify-content:center; border-radius:4px; background:#f0f4f8; font-size:16px;}
+        .file-icon.txt::before {content:"📄";}
+        .file-icon.pdf::before {content:"📄"; color:#d35400;}
+        .file-icon.jpg::before {content:"🖼️"; color:#3498db;}
+        .file-icon.pptx::before {content:"📊"; color:#e67e22;}
+        .file-icon.docx::before {content:"W"; font-weight:bold; color:#2d6cdf;}
+        .file-name{font-size:14px; color:#333;}
+        .file-type{font-size:14px; color:#666;}
+
+        /* Viewer */
+        .viewer{width:50%; padding:20px; overflow:auto; background:#fff;}
+        .viewer-title {font-size:20px; font-weight:bold; margin-bottom:10px;}
+        .viewer-content {padding:10px; border:1px solid #e0e0e0; border-radius:6px; background:#f9f9f9; min-height:300px;}
+
+        /* Icons */
+        .search-icon::before {content:"🔍";}
+        .folder-icon::before {content:"📁";}
+        .toggle-arrow::before {content:"▶";}
+        .toggle-arrow.rotated::before {content:"▼";}
+
+        /* Responsive */
+        @media(max-width:1000px){.sidebar{width:200px;}}
+        @media(max-width:800px){.main-content{flex-direction:column;}.sidebar{width:100%; border-right:none; border-bottom:1px solid #e0e0e0;}}
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <div class="logo"><div class="logo-icon">W</div><div class="logo-text">Wiki</div></div>
+        <div class="search-bar"><span class="search-icon"></span><input type="text" class="search-input" placeholder="Поиск"></div>
+    </div>
+
+    <div class="main-content">
+        <div class="sidebar">
+            <div class="sidebar-title">Папки</div>
+            <ul class="folder-list">
+                <li class="folder-item has-children">
+                    <span class="toggle-arrow"></span>
+                    <span class="folder-icon"></span>
+                    <span class="folder-name">Документы</span>
+                    <ul class="subfolder">
+                        <li class="folder-item has-children">
+                            <span class="toggle-arrow"></span>
+                            <span class="folder-icon"></span>
+                            <span class="folder-name">Отчёты</span>
+                            <ul class="subfolder">
+                                <li class="folder-item"><span class="folder-icon"></span><span class="folder-name">Ежемесячные</span></li>
+                            </ul>
+                        </li>
+                        <li class="folder-item"><span class="folder-icon"></span><span class="folder-name">Техническая документация</span></li>
+                    </ul>
+                </li>
+                <li class="folder-item"><span class="folder-icon"></span><span class="folder-name">Изображения</span></li>
+            </ul>
+        </div>
+
+        <div class="files-section">
+            <div class="files-title">Файлы</div>
+            <div class="files-header"><div>Название</div><div>Тип</div></div>
+            <div class="files-table">
+                <div class="file-row" data-file="файл.txt">
+                    <div class="file-info"><div class="file-icon txt"></div><div class="file-name">файл.txt</div></div>
+                    <div class="file-type">txt</div>
+                </div>
+                <div class="file-row" data-file="документ.pdf">
+                    <div class="file-info"><div class="file-icon pdf"></div><div class="file-name">документ.pdf</div></div>
+                    <div class="file-type">pdf</div>
+                </div>
+                <div class="file-row" data-file="макет.jpg">
+                    <div class="file-info"><div class="file-icon jpg"></div><div class="file-name">макет.jpg</div></div>
+                    <div class="file-type">jpg</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="viewer">
+            <div class="viewer-title">Область просмотра файла</div>
+            <div class="viewer-content">Выберите файл, чтобы просмотреть его содержимое...</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const folderItems = document.querySelectorAll('.folder-item.has-children');
+        folderItems.forEach(item => {
+            const toggleArrow = item.querySelector('.toggle-arrow');
+            const subfolder = item.querySelector('.subfolder');
+            if(subfolder) subfolder.classList.remove('expanded');
+
+            toggleArrow.addEventListener('click', e => {
+                e.stopPropagation();
+                subfolder.classList.toggle('expanded');
+                toggleArrow.classList.toggle('rotated');
+            });
+        });
+
+        const viewerContent = document.querySelector('.viewer-content');
+        document.querySelectorAll('.file-row').forEach(row=>{
+            row.addEventListener('click', ()=>{
+                const fileName = row.dataset.file;
+                viewerContent.textContent = "Содержимое файла: " + fileName;
+            });
+        });
+    });
+</script>
+</body>
+</html>
