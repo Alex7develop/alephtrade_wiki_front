@@ -15,7 +15,7 @@ const Toolbar = styled.div`
   align-items: center;
   padding: 12px 16px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  box-shadow: ${({ theme }) => theme.shadow.inner};
+  box-shadow: ${({ theme }) => theme.shadows.inner};
 `;
 
 

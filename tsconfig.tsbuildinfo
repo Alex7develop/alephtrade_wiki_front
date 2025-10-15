@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/components/fileslist.tsx","./src/components/header.tsx","./src/components/preview.tsx","./src/components/sidebar.tsx","./src/store/fsslice.ts","./src/store/store.ts","./src/styles/theme.ts","./src/types/assets.d.ts"],"version":"5.9.3"}

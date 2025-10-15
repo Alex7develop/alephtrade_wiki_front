@@ -14,7 +14,7 @@ export const theme = {
     warning: '#ffbe0b',
     danger: '#ff006e'
   },
-  shadow: {
+  shadows: {
     sm: '0 1px 2px rgba(0,0,0,.25)',
     md: '0 6px 24px rgba(0,0,0,.25)',
     inner: '0 1px 0 rgba(255,255,255,.04) inset, 0 1px 2px rgba(0,0,0,.35) inset'
@@ -24,8 +24,28 @@ export const theme = {
     md: '12px',
     lg: '16px'
   },
+  fontSize: {
+    sm: '14px',
+    md: '16px',
+    lg: '18px',
+  },
+  gradients: {
+    primary: 'linear-gradient(180deg, #3a86ff, #73a9ff)',
+  },
   spacing: (n: number) => `${n * 8}px`
 } as const;
+
+// Типы для styled-components
+declare module 'styled-components' {
+  export interface DefaultTheme {
+    colors: typeof theme.colors;
+    shadows: typeof theme.shadows;
+    radius: typeof theme.radius;
+    fontSize: typeof theme.fontSize;
+    gradients: typeof theme.gradients;
+    spacing: typeof theme.spacing;
+  }
+}
 
 export const GlobalStyle = createGlobalStyle`
   :root { color-scheme: dark; }
@@ -56,5 +76,3 @@ export const GlobalStyle = createGlobalStyle`
   }
   ::selection { background: ${() => theme.colors.primary}; color: #fff; }
 `;
-
-

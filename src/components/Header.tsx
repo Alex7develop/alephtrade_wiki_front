@@ -2,7 +2,7 @@ import styled from 'styled-components';
 import { useDispatch, useSelector } from 'react-redux';
 import { createFolder, setSearch } from '@/store/fsSlice';
 import type { RootState } from '@/store/store';
-import logoSrc from '../../icon/featherIcon.svg';
+import logoSrc from '/icon/featherIcon.svg';
 
 const Bar = styled.div`
   height: 64px;

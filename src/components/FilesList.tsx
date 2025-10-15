@@ -17,7 +17,7 @@ const Row = styled.div<{ selected?: boolean }>`
   border-radius: ${({ theme }) => theme.radius.sm};
   cursor: pointer;
   background: ${({ selected, theme }) => (selected ? theme.colors.surface : 'transparent')};
-  &:hover { background: ${({ theme }) => theme.colors.surface }; }
+  &:hover { background: ${({ theme }) => theme.colors.surfaceAlt}; }
   overflow: hidden;
 `;
 
