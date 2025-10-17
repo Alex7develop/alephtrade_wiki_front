@@ -3,6 +3,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { createFolder, setSearch } from '@/store/fsSlice';
 import type { RootState } from '@/store/store';
 import logoSrc from '/icon/featherIcon.svg';
+import { useEffect, useState } from 'react';
+import { useThemeMode } from '@/styles/ThemeMode';
 
 const Bar = styled.div`
   height: 64px;
@@ -56,10 +58,21 @@ const Button = styled.button`
   &:active { transform: translateY(1px); }
 `;
 
+const Toggle = styled.button`
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 24px;
+  background: ${({ theme }) => theme.colors.surfaceAlt};
+  color: ${({ theme }) => theme.colors.text};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  cursor: pointer;
+`;
+
 export function Header() {
   const dispatch = useDispatch();
   const search = useSelector((s: RootState) => s.fs.search);
   const selectedFolderId = useSelector((s: RootState) => s.fs.selectedFolderId);
+  const { mode, toggle } = useThemeMode();
 
   return (
     <Bar>
@@ -75,6 +88,9 @@ export function Header() {
       <Button onClick={() => dispatch(createFolder({ parentId: selectedFolderId }))}>
         + Папка
       </Button>
+      <Toggle onClick={toggle} title="Сменить тему">
+        {mode === 'light' ? '🌙 Тёмная' : '☀️ Светлая'}
+      </Toggle>
     </Bar>
   );
 }

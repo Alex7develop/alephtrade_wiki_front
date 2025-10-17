@@ -42,9 +42,9 @@ const FilesArea = styled.section`
 
 const DividerArea = styled.div`
   grid-area: divider;
-  border-left: 1px solid #2e3a5a;
-  border-right: 1px solid #2e3a5a;
-  background: #1c2541;
+  border-left: 1px solid ${({ theme }) => theme.colors.border};
+  border-right: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.surface};
 `;
 
 const PreviewArea = styled.main`

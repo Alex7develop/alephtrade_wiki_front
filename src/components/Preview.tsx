@@ -1,4 +1,4 @@
-import styled from 'styled-components';
+import styled, { useTheme } from 'styled-components';
 import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -108,6 +108,7 @@ const MdWrap = styled.div`
 export function Preview() {
   const dispatch = useDispatch();
   const { root, selectedFileId } = useSelector((s: RootState) => s.fs);
+  const theme = useTheme();
 
   // Markdown preview state must be declared before any return to preserve hooks order
   const [mdLoading, setMdLoading] = useState(false);
@@ -151,16 +152,16 @@ export function Preview() {
             const baseHref = (node.url || '').replace(/([^/]+)$/,''); // directory of the file
             const themedStyles = `
               <style>
-                body { margin: 0; font: 14px/1.6 -apple-system, Segoe UI, Roboto, Inter, Arial; color: #e6eefc; background: #1c2541; }
+                body { margin: 0; font: 14px/1.6 -apple-system, Segoe UI, Roboto, Inter, Arial; color: ${theme.colors.text}; background: ${theme.colors.surfaceAlt}; }
                 .container { padding: 16px; }
-                h1,h2,h3 { color: #e6eefc; }
-                a { color: #73a9ff; text-decoration: none; }
-                pre, code { background: rgba(255,255,255,.06); color: #e6eefc; }
+                h1,h2,h3 { color: ${theme.colors.text}; }
+                a { color: ${theme.colors.primaryAccent}; text-decoration: none; }
+                pre, code { background: rgba(0,0,0,.06); color: ${theme.colors.text}; }
                 pre { padding: 12px; border-radius: 8px; overflow: auto; }
                 img { max-width: 100%; }
                 table { width: 100%; border-collapse: collapse; }
-                th, td { border: 1px solid #2e3a5a; padding: 8px; }
-                blockquote { border-left: 3px solid #3a86ff; padding-left: 12px; color: #a9b8d4; }
+                th, td { border: 1px solid ${theme.colors.border}; padding: 8px; }
+                blockquote { border-left: 3px solid ${theme.colors.primary}; padding-left: 12px; color: ${theme.colors.textMuted}; }
               </style>`;
             const documentHtml = `<!doctype html><html><head><meta charset="utf-8"/><base href="${baseHref}">${themedStyles}</head><body><div class="container">${htmlBody}</div></body></html>`;
             setMdHtml(documentHtml);
@@ -179,6 +180,31 @@ export function Preview() {
     }
     return () => { aborted = true; };
   }, [node]);
+
+  // Rebuild HTML when theme changes without refetching
+  useEffect(() => {
+    const isMd = !!(node && ((node.mime === 'text/markdown') || node.url?.toLowerCase().endsWith('.md')));
+    if (!isMd || !mdText || !node?.url) return;
+    try {
+      const htmlBody = marked.parse(mdText);
+      const baseHref = (node.url || '').replace(/([^/]+)$/,'');
+      const themedStyles = `
+        <style>
+          body { margin: 0; font: 14px/1.6 -apple-system, Segoe UI, Roboto, Inter, Arial; color: ${theme.colors.text}; background: ${theme.colors.surfaceAlt}; }
+          .container { padding: 16px; }
+          h1,h2,h3 { color: ${theme.colors.text}; }
+          a { color: ${theme.colors.primaryAccent}; text-decoration: none; }
+          pre, code { background: rgba(0,0,0,.06); color: ${theme.colors.text}; }
+          pre { padding: 12px; border-radius: 8px; overflow: auto; }
+          img { max-width: 100%; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { border: 1px solid ${theme.colors.border}; padding: 8px; }
+          blockquote { border-left: 3px solid ${theme.colors.primary}; padding-left: 12px; color: ${theme.colors.textMuted}; }
+        </style>`;
+      const documentHtml = `<!doctype html><html><head><meta charset="utf-8"/><base href="${baseHref}">${themedStyles}</head><body><div class="container">${htmlBody}</div></body></html>`;
+      setMdHtml(documentHtml);
+    } catch { /* ignore */ }
+  }, [theme, mdText, node]);
 
   if (!node) {
     return (
