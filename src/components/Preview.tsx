@@ -132,8 +132,8 @@ export function Preview() {
     let aborted = false;
     const isMd = !!(node && ((node.mime === 'text/markdown') || node.url?.toLowerCase().endsWith('.md')));
     if (isMd && node?.url) {
-      // Dev: route through Vite proxy '/yc' to bypass CORS
-      // Prod: use CORS-friendly public proxy for read-only content
+      // Dev: Vite proxy '/yc' bypasses CORS
+      // Prod: use AllOrigins public proxy for read-only content
       const isLocalhost = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)/.test(window.location.hostname);
       let mdUrl = node.url;
       if (node.url.startsWith('https://storage.yandexcloud.net')) {
