@@ -24,7 +24,7 @@ const initialState: FsState = {
   root: {
     id: 'root',
     type: 'folder',
-    name: 'Корень',
+    name: '/',
     children: []
   },
   selectedFolderId: 'root',

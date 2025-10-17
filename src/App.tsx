@@ -11,7 +11,8 @@ import { Preview } from '@/components/Preview';
 const Layout = styled.div`
   display: grid;
   grid-template-rows: 64px 1fr 56px;
-  grid-template-columns: 280px 1fr 16px 1fr;
+  /* Уменьшаем Files, увеличиваем Preview */
+  grid-template-columns: 280px 0.6fr 16px 1.4fr;
   grid-template-areas:
     'header header header header'
     'sidebar files divider preview'
