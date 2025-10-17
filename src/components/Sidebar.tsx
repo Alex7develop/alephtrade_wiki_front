@@ -1,7 +1,7 @@
 import styled from 'styled-components';
 import { useDispatch, useSelector } from 'react-redux';
 import { useMemo, useState } from 'react';
-import { selectFolder } from '@/store/fsSlice';
+import { selectFolder, moveNodeAPI } from '@/store/fsSlice';
 import type { RootState } from '@/store/store';
 
 const TreeWrap = styled.div`
@@ -37,9 +37,10 @@ function matches(query: string, name: string) {
 }
 
 function TreeNode({ node, level, expanded, toggle }: { node: any; level: number; expanded: Set<string>; toggle: (id: string) => void }) {
-  const dispatch = useDispatch();
+  const dispatch: any = useDispatch();
   const selectedFolderId = useSelector((s: RootState) => s.fs.selectedFolderId);
   const search = useSelector((s: RootState) => s.fs.search);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
   const isFolder = node.type === 'folder';
   const visible = !search || matches(search, node.name);
@@ -57,7 +58,11 @@ function TreeNode({ node, level, expanded, toggle }: { node: any; level: number;
     <div>
       <ItemRow
         selected={selectedFolderId === node.id}
-        style={{ paddingLeft: 8 + level * 16 }}
+        style={{
+          paddingLeft: 8 + level * 16,
+          boxShadow: dropTargetId === node.id ? 'inset 0 0 0 2px #16aaff' : undefined,
+          background: dropTargetId === node.id ? 'rgba(22,170,255,0.11)' : undefined,
+        }}
         onClick={() => {
           if (isFolder) {
             toggle(node.id);
@@ -65,6 +70,22 @@ function TreeNode({ node, level, expanded, toggle }: { node: any; level: number;
           }
         }}
         title={node.name}
+        onDragOver={e => {
+          if (isFolder && node.id !== 'root') {
+            e.preventDefault();
+            setDropTargetId(node.id);
+          }
+        }}
+        onDragLeave={e => { if (isFolder) setDropTargetId(null); }}
+        onDrop={e => {
+          if (!isFolder || node.id === 'root') return;
+          e.preventDefault();
+          const sourceId = e.dataTransfer.getData('text/plain');
+          if (!sourceId || sourceId === node.id) return;
+          setDropTargetId(null);
+          dispatch(moveNodeAPI({ uuid: sourceId, parent_uuid: node.id }));
+        }}
+        draggable={false}
       >
         <Caret>{isFolder ? (isExpanded ? '▾' : '▸') : null}</Caret>
         <Name>{node.name}</Name>
