@@ -12,13 +12,6 @@ export default defineConfig({
         changeOrigin: true,
         secure: true,
         rewrite: (path) => path
-      },
-      // Proxy for Yandex Cloud storage to bypass CORS in dev
-      '/yc': {
-        target: 'https://storage.yandexcloud.net',
-        changeOrigin: true,
-        secure: true,
-        rewrite: (path) => path.replace(/^\/yc/, '')
       }
     }
   },

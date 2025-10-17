@@ -132,15 +132,7 @@ export function Preview() {
     let aborted = false;
     const isMd = !!(node && ((node.mime === 'text/markdown') || node.url?.toLowerCase().endsWith('.md')));
     if (isMd && node?.url) {
-      // Dev: Vite proxy '/yc' bypasses CORS
-      // Prod: use AllOrigins public proxy for read-only content
-      const isLocalhost = typeof window !== 'undefined' && /^(localhost|127\.0\.0\.1)/.test(window.location.hostname);
-      let mdUrl = node.url;
-      if (node.url.startsWith('https://storage.yandexcloud.net')) {
-        mdUrl = isLocalhost
-          ? node.url.replace('https://storage.yandexcloud.net', '/yc')
-          : `https://api.allorigins.win/raw?url=${encodeURIComponent(node.url)}`;
-      }
+      const mdUrl = node.url;
       setMdLoading(true);
       setMdError(null);
       setMdText('');
