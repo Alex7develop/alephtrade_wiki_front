@@ -28,6 +28,25 @@ const Title = styled.div`
   font-weight: 600;
 `;
 
+const ToolbarSpacer = styled.div`
+  flex: 1;
+`;
+
+const ActionBtn = styled.button`
+  height: 34px;
+  padding: 0 12px;
+  border-radius: 10px;
+  background: ${({ theme }) => theme.colors.surfaceAlt};
+  color: ${({ theme }) => theme.colors.text};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: background .15s ease, border-color .15s ease;
+  &:hover { background: ${({ theme }) => theme.colors.surface}; }
+`;
+
 const Body = styled.div`
   padding: 16px;
   color: ${({ theme }) => theme.colors.text};
@@ -221,11 +240,35 @@ export function Preview() {
   const isPdf = node.mime === 'application/pdf';
   const isMd = node.mime === 'text/markdown' || node.url?.toLowerCase().endsWith('.md');
   
+  function downloadMd() {
+    if (!node?.url) return;
+    if (isMd && mdText) {
+      const blob = new Blob([mdText], { type: 'text/markdown;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const name = (node.name?.endsWith('.md') ? node.name : `${node.name || 'document'}.md`);
+      a.download = name;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } else {
+      // fallback: просто открыть исходный URL (браузер решит скачать/открыть)
+      window.open(node.url, '_blank');
+    }
+  }
+  
   return (
     <Wrap>
       <Toolbar>
         <Title>{node.name}</Title>
-        <div style={{ flex: 1 }} />
+        <ToolbarSpacer />
+        {isMd && (
+          <ActionBtn onClick={downloadMd} title="Скачать .md">
+            ⬇ Скачать
+          </ActionBtn>
+        )}
       </Toolbar>
       <Body>
         {isFolder ? (
