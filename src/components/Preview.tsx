@@ -281,7 +281,7 @@ export function Preview() {
         <ToolbarSpacer />
         {!isFolder && (
           <ActionBtn onClick={deleteFile} title="Удалить файл" style={{ color:'#d4183a', marginRight:4 }}>
-            ✖
+            Удалить
           </ActionBtn>
         )}
         {isFolder && node.id !== 'root' && (
