@@ -134,6 +134,177 @@ export const fetchTree = createAsyncThunk('fs/fetchTree', async () => {
   return data.map(mapApiToFs);
 });
 
+// Добавляем thunk для создания папки через API
+export const createFolderAPI = createAsyncThunk(
+  'fs/createFolderAPI',
+  async (
+    { parentId, name }: { parentId?: string; name?: string },
+    { dispatch, rejectWithValue }
+  ) => {
+    try {
+      // Позволяем создавать на root, если parentId некорректен
+      const parent_uuid = parentId && parentId !== 'root' ? parentId : undefined;
+      const reqBody = {
+        name: name?.trim() || 'Новая папка',
+        ...(parent_uuid ? { parent_uuid } : {}),
+        access: 1
+      };
+      const res = await fetch('https://backendwiki.alephtrade.com/api/v2/create_folder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reqBody)
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data && data.message) || 'Ошибка создания папки');
+      }
+      // После успеха подгружаем всё дерево заново
+      dispatch(fetchTree());
+      return await res.json();
+    } catch (e: any) {
+      return rejectWithValue(e.message || 'Ошибка');
+    }
+  }
+);
+
+// Thunk — загрузка файла (md/pdf) через POST /api/v2/upload_file
+export const uploadFileAPI = createAsyncThunk(
+  'fs/uploadFileAPI',
+  async (
+    { parentId, file }: { parentId?: string; file: File },
+    { dispatch, rejectWithValue }
+  ) => {
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      if (parentId && parentId !== 'root') form.append('parent_uuid', parentId);
+      form.append('access', '1');
+
+      const res = await fetch('https://backendwiki.alephtrade.com/api/v2/upload_file', {
+        method: 'POST',
+        body: form
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data && data.message) || 'Ошибка загрузки файла');
+      }
+      // обновить дерево после загрузки
+      dispatch(fetchTree());
+      return await res.json();
+    } catch (e: any) {
+      return rejectWithValue(e.message || 'Ошибка');
+    }
+  }
+);
+
+// Переименование файла через API PATCH /api/v2/update_file/{uuid}
+export const renameFileAPI = createAsyncThunk(
+  'fs/renameFileAPI',
+  async (
+    { uuid, name }: { uuid: string; name: string },
+    { dispatch, rejectWithValue }
+  ) => {
+    try {
+      const res = await fetch(
+        `https://backendwiki.alephtrade.com/api/v2/update_file/${uuid}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name })
+        }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data && data.message) || 'Ошибка переименования файла');
+      }
+      dispatch(fetchTree());
+      return await res.json();
+    } catch (e: any) {
+      return rejectWithValue(e.message || 'Ошибка');
+    }
+  }
+);
+
+// Thunk: удаление файла через API DELETE /api/v2/delete_file/{uuid}
+export const deleteFileAPI = createAsyncThunk(
+  'fs/deleteFileAPI',
+  async (
+    { uuid }: { uuid: string },
+    { dispatch, rejectWithValue }
+  ) => {
+    try {
+      const res = await fetch(
+        `https://backendwiki.alephtrade.com/api/v2/delete_file/${uuid}`,
+        { method: 'DELETE' }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data && data.message) || 'Ошибка удаления файла');
+      }
+      dispatch(fetchTree());
+      return await res.json();
+    } catch (e: any) {
+      return rejectWithValue(e.message || 'Ошибка');
+    }
+  }
+);
+
+// Thunk: удаление папки через API DELETE /api/v2/delete_folder/{uuid}
+export const deleteFolderAPI = createAsyncThunk(
+  'fs/deleteFolderAPI',
+  async (
+    { uuid }: { uuid: string },
+    { dispatch, rejectWithValue }
+  ) => {
+    try {
+      const res = await fetch(
+        `https://backendwiki.alephtrade.com/api/v2/delete_folder/${uuid}`,
+        { method: 'DELETE' }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data && data.message) || 'Ошибка удаления папки');
+      }
+      dispatch(fetchTree());
+      return await res.json();
+    } catch (e: any) {
+      return rejectWithValue(e.message || 'Ошибка');
+    }
+  }
+);
+
+// Thunk: перемещение и/или переименование папки/файла (PATCH /api/v2/update_structure/{uuid})
+export const moveNodeAPI = createAsyncThunk(
+  'fs/moveNodeAPI',
+  async (
+    { uuid, parent_uuid, name, access }: { uuid: string; parent_uuid?: string; name?: string; access?: number },
+    { dispatch, rejectWithValue }
+  ) => {
+    try {
+      const res = await fetch(
+        `https://backendwiki.alephtrade.com/api/v2/update_structure/${uuid}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...(name ? { name } : {}),
+            ...(typeof access === 'number' ? { access } : {}),
+            ...(parent_uuid ? { parent_uuid } : {})
+          })
+        }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data && data.message) || 'Ошибка перемещения');
+      }
+      await dispatch(fetchTree());
+      return await res.json();
+    } catch (e: any) {
+      return rejectWithValue(e.message || 'Ошибка');
+    }
+  }
+);
+
 const fsSlice = createSlice({
   name: 'fs',
   initialState,

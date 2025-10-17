@@ -2,7 +2,8 @@ import styled from 'styled-components';
 import { useDispatch, useSelector } from 'react-redux';
 import { useEffect, useRef, useState } from 'react';
 import type { RootState } from '@/store/store';
-import { renameItem, selectFile } from '@/store/fsSlice';
+import { selectFile, moveNodeAPI } from '@/store/fsSlice';
+import { renameFileAPI } from '@/store/fsSlice';
 
 const Wrap = styled.div`
   padding: 16px;
@@ -53,10 +54,12 @@ function find(node: any, id: string): any | null {
 }
 
 export function FilesList() {
-  const dispatch = useDispatch();
+  const dispatch: any = useDispatch();
   const { root, selectedFolderId, selectedFileId, search } = useSelector((s: RootState) => s.fs);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const folder = find(root, selectedFolderId);
   const files = (folder?.children ?? []).filter((c: any) => c.type === 'file');
   const filtered = search ? files.filter((f: any) => f.name.toLowerCase().includes(search.toLowerCase())) : files;
@@ -79,10 +82,10 @@ export function FilesList() {
     }
   }, [editingId]);
 
-  const commitRename = (id: string) => {
+  const commitRename = async (id: string) => {
     const newName = editingValue.trim();
     if (newName && filtered.find((f: any) => f.id === id)?.name !== newName) {
-      dispatch(renameItem({ id, name: newName }));
+      await dispatch(renameFileAPI({ uuid: id, name: newName }));
     }
     setEditingId(null);
   };
@@ -93,6 +96,27 @@ export function FilesList() {
         <Row
           key={f.id}
           selected={selectedFileId === f.id}
+          style={{
+            boxShadow: draggingId === f.id ? '0 0 8px #3178ff' :
+              dropTargetId === f.id ? 'inset 0 0 0 2px #31a8ff' : undefined
+          }}
+          draggable
+          onDragStart={e => {
+            setDraggingId(f.id);
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', f.id);
+          }}
+          onDragEnd={() => {
+            setDraggingId(null);
+            setDropTargetId(null);
+          }}
+          onDragOver={e => {
+            e.preventDefault();
+          }}
+          onDrop={e => {
+            e.preventDefault();
+            setDropTargetId(null);
+          }}
           onClick={() => dispatch(selectFile(f.id))}
           onDoubleClick={() => {
             setEditingId(f.id);
@@ -126,6 +150,18 @@ export function FilesList() {
           <Type>{getTypeLabel(f.mime)}</Type>
         </Row>
       ))}
+      {/* Прокидываем drop на сам список — если drag file, drop на фон = file dvig в текущую папку (имеет смысл только при drag с другой вкладки/уровня) */}
+      <div
+        style={{height:8, width:'100%'}}
+        onDragOver={e => {e.preventDefault();}}
+        onDrop={e => {
+          // Определим id drag-элемента
+          const id = e.dataTransfer.getData('text/plain');
+          if (id && id !== selectedFolderId && folder?.id) {
+            dispatch(moveNodeAPI({ uuid: id, parent_uuid: folder.id }));
+          }
+        }}
+      />
     </Wrap>
   );
 }

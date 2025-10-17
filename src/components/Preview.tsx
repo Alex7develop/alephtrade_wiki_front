@@ -6,7 +6,7 @@ import rehypeRaw from 'rehype-raw';
 import { marked } from 'marked';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from '@/store/store';
-import { renameItem } from '@/store/fsSlice';
+import { deleteFileAPI, deleteFolderAPI, selectFile, selectFolder } from '@/store/fsSlice';
 
 const Wrap = styled.div`
   height: 100%;
@@ -125,7 +125,7 @@ const MdWrap = styled.div`
 `;
 
 export function Preview() {
-  const dispatch = useDispatch();
+  const dispatch: any = useDispatch();
   const { root, selectedFileId } = useSelector((s: RootState) => s.fs);
   const theme = useTheme();
 
@@ -259,11 +259,36 @@ export function Preview() {
     }
   }
   
+  const deleteFile = async () => {
+    if (!node?.id) return;
+    if (window.confirm('Удалить файл безвозвратно?')) {
+      await dispatch(deleteFileAPI({ uuid: node.id }));
+      dispatch(selectFile(''));
+    }
+  };
+
+  const deleteFolder = async () => {
+    if (!node?.id || node.id === 'root') return;
+    if (window.confirm('Удалить папку со всем содержимым?')) {
+      await dispatch(deleteFolderAPI({ uuid: node.id }));
+      dispatch(selectFolder('root'));
+    }
+  };
+
   return (
     <Wrap>
       <Toolbar>
-        <Title>{node.name}</Title>
         <ToolbarSpacer />
+        {!isFolder && (
+          <ActionBtn onClick={deleteFile} title="Удалить файл" style={{ color:'#d4183a', marginRight:4 }}>
+            ✖
+          </ActionBtn>
+        )}
+        {isFolder && node.id !== 'root' && (
+          <ActionBtn onClick={deleteFolder} title="Удалить папку" style={{ color:'#d4183a', marginRight:4 }}>
+            ✖
+          </ActionBtn>
+        )}
         {isMd && (
           <ActionBtn onClick={downloadMd} title="Скачать .md">
             ⬇ Скачать
