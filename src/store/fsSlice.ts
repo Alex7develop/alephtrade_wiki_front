@@ -1,4 +1,4 @@
-import { createSlice, PayloadAction, nanoid } from '@reduxjs/toolkit';
+import { createAsyncThunk, createSlice, PayloadAction, nanoid } from '@reduxjs/toolkit';
 
 export type NodeType = 'folder' | 'file';
 
@@ -8,6 +8,7 @@ export interface FsNode {
   name: string;
   children?: FsNode[]; // only for folders
   mime?: string; // for files, optional
+  url?: string; // for files, optional (s3 url)
 }
 
 export interface FsState {
@@ -15,74 +16,22 @@ export interface FsState {
   selectedFolderId: string; // текущая открытая папка
   selectedFileId: string | null; // выбранный файл для предпросмотра
   search: string;
+  loading: boolean;
+  error: string | null;
 }
 
 const initialState: FsState = {
   root: {
     id: 'root',
     type: 'folder',
-    name: 'Компания',
-    children: [
-      {
-        id: 'policies',
-        type: 'folder',
-        name: 'Политики',
-        children: [
-          { id: 'sec.pdf', type: 'file', name: 'Инфобезопасность.pdf', mime: 'application/pdf' },
-          { id: 'hr.docx', type: 'file', name: 'HR-процессы.docx', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' }
-        ]
-      },
-      {
-        id: 'guides',
-        type: 'folder',
-        name: 'Инструкции',
-        children: [
-          { id: 'onboarding.md', type: 'file', name: 'Онбординг.md', mime: 'text/markdown' },
-          { id: 'vpn.txt', type: 'file', name: 'VPN.txt', mime: 'text/plain' }
-        ]
-      },
-      {
-        id: 'deep',
-        type: 'folder',
-        name: 'Глубокая структура',
-        children: [
-          {
-            id: 'lvl-1',
-            type: 'folder',
-            name: 'Уровень 1',
-            children: [
-              {
-                id: 'lvl-2',
-                type: 'folder',
-                name: 'Уровень 2',
-                children: [
-                  {
-                    id: 'lvl-3',
-                    type: 'folder',
-                    name: 'Уровень 3',
-                    children: [
-                      {
-                        id: 'lvl-4',
-                        type: 'folder',
-                        name: 'Уровень 4',
-                        children: [
-                          { id: 'deep-note.txt', type: 'file', name: 'Глубокая заметка.txt', mime: 'text/plain' }
-                        ]
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      { id: 'logo.png', type: 'file', name: 'Логотип.png', mime: 'image/png' }
-    ]
+    name: 'Корень',
+    children: []
   },
   selectedFolderId: 'root',
   selectedFileId: null,
-  search: ''
+  search: '',
+  loading: false,
+  error: null
 };
 
 function findNodeById(node: FsNode, id: string): FsNode | null {
@@ -120,6 +69,33 @@ function mutateRename(node: FsNode, id: string, newName: string): boolean {
   return false;
 }
 
+// API node type
+type ApiNode = {
+  uuid: string;
+  name: string;
+  type: 'file' | 'folder';
+  s3_url?: string;
+  children?: ApiNode[];
+};
+
+function mapApiToFs(node: ApiNode): FsNode {
+  return {
+    id: node.uuid,
+    name: node.name,
+    type: node.type,
+    url: node.s3_url,
+    children: node.children?.map(mapApiToFs)
+  };
+}
+
+export const fetchTree = createAsyncThunk('fs/fetchTree', async () => {
+  // Запрашиваем напрямую публичный эндпоинт
+  const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/tree');
+  if (!res.ok) throw new Error('Не удалось загрузить дерево');
+  const data = (await res.json()) as ApiNode[];
+  return data.map(mapApiToFs);
+});
+
 const fsSlice = createSlice({
   name: 'fs',
   initialState,
@@ -142,6 +118,24 @@ const fsSlice = createSlice({
     renameItem(state, action: PayloadAction<{ id: string; name: string }>) {
       mutateRename(state.root, action.payload.id, action.payload.name.trim());
     }
+  },
+  extraReducers: (builder) => {
+    builder
+      .addCase(fetchTree.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchTree.fulfilled, (state, action: PayloadAction<FsNode[]>) => {
+        state.loading = false;
+        state.root.children = action.payload;
+        // при первой загрузке остаёмся на корне
+        state.selectedFolderId = 'root';
+        state.selectedFileId = null;
+      })
+      .addCase(fetchTree.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message ?? 'Ошибка загрузки';
+      });
   }
 });
 

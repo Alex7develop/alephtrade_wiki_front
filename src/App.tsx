@@ -1,4 +1,8 @@
 import styled from 'styled-components';
+import { useDispatch, useSelector } from 'react-redux';
+import type { RootState } from '@/store/store';
+import { fetchTree } from '@/store/fsSlice';
+import { useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { Sidebar } from '@/components/Sidebar';
 import { FilesList } from '@/components/FilesList';
@@ -60,16 +64,23 @@ const FooterArea = styled.footer`
 `;
 
 export default function App() {
+  const dispatch = useDispatch();
+  const { loading, error } = useSelector((s: RootState) => s.fs);
+
+  useEffect(() => {
+    dispatch(fetchTree() as any);
+  }, [dispatch]);
+
   return (
     <Layout>
       <HeaderArea>
         <Header />
       </HeaderArea>
       <SidebarArea>
-        <Sidebar />
+        {loading ? 'Загрузка...' : <Sidebar />}
       </SidebarArea>
       <FilesArea>
-        <FilesList />
+        {error ? <div style={{ padding: 16, color: '#f88' }}>Ошибка: {error}</div> : <FilesList />}
       </FilesArea>
       <DividerArea />
       <PreviewArea>
