@@ -94,6 +94,9 @@ function mapApiToFs(node: ApiNode): FsNode {
       case 'pdf':
         fsNode.mime = 'application/pdf';
         break;
+      case 'md':
+        fsNode.mime = 'text/markdown';
+        break;
       case 'doc':
       case 'docx':
         fsNode.mime = 'application/msword';
