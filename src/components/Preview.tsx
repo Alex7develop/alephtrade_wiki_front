@@ -115,7 +115,7 @@ export function Preview() {
           <div>Папка содержит: {(node.children ?? []).length} элементов</div>
         ) : (
           <>
-            <FileInfo>
+            {/* <FileInfo> Отображение блока с информацией о файле
               <InfoRow>
                 <InfoLabel>Тип файла:</InfoLabel>
                 <InfoValue>{node.mime || 'неизвестно'}</InfoValue>
@@ -128,7 +128,7 @@ export function Preview() {
                   </InfoValue>
                 </InfoRow>
               )}
-            </FileInfo>
+            </FileInfo> */}
             
             {isPdf && node.url ? (
               <PdfViewer src={node.url} title={node.name} />
