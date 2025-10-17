@@ -79,13 +79,48 @@ type ApiNode = {
 };
 
 function mapApiToFs(node: ApiNode): FsNode {
-  return {
+  const fsNode: FsNode = {
     id: node.uuid,
     name: node.name,
     type: node.type,
     url: node.s3_url,
     children: node.children?.map(mapApiToFs)
   };
+  
+  // Определяем MIME тип из URL для файлов
+  if (node.type === 'file' && node.s3_url) {
+    const extension = node.s3_url.split('.').pop()?.toLowerCase();
+    switch (extension) {
+      case 'pdf':
+        fsNode.mime = 'application/pdf';
+        break;
+      case 'doc':
+      case 'docx':
+        fsNode.mime = 'application/msword';
+        break;
+      case 'xls':
+      case 'xlsx':
+        fsNode.mime = 'application/vnd.ms-excel';
+        break;
+      case 'txt':
+        fsNode.mime = 'text/plain';
+        break;
+      case 'jpg':
+      case 'jpeg':
+        fsNode.mime = 'image/jpeg';
+        break;
+      case 'png':
+        fsNode.mime = 'image/png';
+        break;
+      case 'gif':
+        fsNode.mime = 'image/gif';
+        break;
+      default:
+        fsNode.mime = extension || 'unknown';
+    }
+  }
+  
+  return fsNode;
 }
 
 export const fetchTree = createAsyncThunk('fs/fetchTree', async () => {

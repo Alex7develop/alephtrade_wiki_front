@@ -26,6 +26,52 @@ const Title = styled.div`
 const Body = styled.div`
   padding: 16px;
   color: ${({ theme }) => theme.colors.text};
+  height: 100%;
+  overflow: auto;
+`;
+
+const PdfViewer = styled.iframe`
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: white;
+`;
+
+const FileInfo = styled.div`
+  margin-bottom: 16px;
+  padding: 12px;
+  background: ${({ theme }) => theme.colors.surface};
+  border-radius: ${({ theme }) => theme.radius.sm};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+`;
+
+const InfoRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  
+  &:last-child {
+    margin-bottom: 0;
+  }
+`;
+
+const InfoLabel = styled.span`
+  color: ${({ theme }) => theme.colors.textMuted};
+  font-weight: 500;
+`;
+
+const InfoValue = styled.span`
+  color: ${({ theme }) => theme.colors.text};
+`;
+
+const UnsupportedFile = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 200px;
+  color: ${({ theme }) => theme.colors.textMuted};
+  text-align: center;
 `;
 
 export function Preview() {
@@ -56,6 +102,8 @@ export function Preview() {
   }
 
   const isFolder = node.type === 'folder';
+  const isPdf = node.mime === 'application/pdf';
+  
   return (
     <Wrap>
       <Toolbar>
@@ -66,10 +114,39 @@ export function Preview() {
         {isFolder ? (
           <div>Папка содержит: {(node.children ?? []).length} элементов</div>
         ) : (
-          <div>
-            <div>Тип: {node.mime || 'неизвестно'}</div>
-            <div>Предпросмотр недоступен, будет добавлен позже</div>
-          </div>
+          <>
+            <FileInfo>
+              <InfoRow>
+                <InfoLabel>Тип файла:</InfoLabel>
+                <InfoValue>{node.mime || 'неизвестно'}</InfoValue>
+              </InfoRow>
+              {node.url && (
+                <InfoRow>
+                  <InfoLabel>URL:</InfoLabel>
+                  <InfoValue style={{ fontSize: '12px', wordBreak: 'break-all' }}>
+                    {node.url}
+                  </InfoValue>
+                </InfoRow>
+              )}
+            </FileInfo>
+            
+            {isPdf && node.url ? (
+              <PdfViewer src={node.url} title={node.name} />
+            ) : (
+              <UnsupportedFile>
+                <div style={{ fontSize: '48px', marginBottom: '16px' }}>📄</div>
+                <div>Предпросмотр для этого типа файла пока недоступен</div>
+                {node.url && (
+                  <div style={{ marginTop: '8px', fontSize: '14px' }}>
+                    <a href={node.url} target="_blank" rel="noopener noreferrer" 
+                       style={{ color: '#3a86ff', textDecoration: 'none' }}>
+                      Открыть в новой вкладке
+                    </a>
+                  </div>
+                )}
+              </UnsupportedFile>
+            )}
+          </>
         )}
       </Body>
     </Wrap>
