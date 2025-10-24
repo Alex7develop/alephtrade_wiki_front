@@ -408,11 +408,14 @@ export const getUser = createAsyncThunk(
 
 export const logout = createAsyncThunk(
   'auth/logout',
-  async (_, { rejectWithValue }) => {
+  async (token: string, { rejectWithValue }) => {
     try {
       const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/user/logout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        method: 'GET',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));

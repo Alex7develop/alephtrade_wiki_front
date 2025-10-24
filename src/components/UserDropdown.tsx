@@ -119,8 +119,10 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ isOpen, onClose }) =
 
   const handleLogout = async () => {
     try {
-      await dispatch(logout());
-      onClose();
+      if (auth.token) {
+        await dispatch(logout(auth.token));
+        onClose();
+      }
     } catch (error) {
       console.error('Ошибка выхода:', error);
     }

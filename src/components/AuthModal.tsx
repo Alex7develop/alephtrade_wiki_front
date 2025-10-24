@@ -187,7 +187,9 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   };
 
   const handleLogout = async () => {
-    await dispatch(logout());
+    if (auth.token) {
+      await dispatch(logout(auth.token));
+    }
     setStep('phone');
     setPhone('');
     setCode('');
