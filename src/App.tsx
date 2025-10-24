@@ -1,7 +1,7 @@
 import styled from 'styled-components';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from '@/store/store';
-import { fetchTree } from '@/store/fsSlice';
+import { fetchTree, getUser } from '@/store/fsSlice';
 import { useEffect } from 'react';
 import { Header } from '@/components/Header';
 import { Sidebar } from '@/components/Sidebar';
@@ -41,11 +41,19 @@ const ContentArea = styled.main`
 
 export default function App() {
   const dispatch = useDispatch();
-  const { loading, error } = useSelector((s: RootState) => s.fs);
+  const { loading, error, auth } = useSelector((s: RootState) => s.fs);
 
   useEffect(() => {
     dispatch(fetchTree() as any);
   }, [dispatch]);
+
+  // Восстанавливаем авторизацию при загрузке приложения
+  useEffect(() => {
+    if (auth.token && !auth.user) {
+      // Если есть токен, но нет данных пользователя, загружаем их
+      dispatch(getUser(auth.token) as any);
+    }
+  }, [auth.token, auth.user, dispatch]);
 
   return (
     <Layout>

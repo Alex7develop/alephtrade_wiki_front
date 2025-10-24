@@ -9,6 +9,8 @@ import themeIcon from '/icon/icons8-день-и-ночь-50.png';
 import { useEffect, useState } from 'react';
 import { useThemeMode } from '@/styles/ThemeMode';
 import React, { useRef } from 'react';
+import { AuthModal } from './AuthModal';
+import { UserDropdown } from './UserDropdown';
 
 const Bar = styled.div`
   height: 60px;
@@ -175,12 +177,48 @@ const FileField = styled.input`
   }
 `;
 
+const Actions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: auto;
+`;
+
+const Avatar = styled.button`
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: ${({ theme }) => theme.colors.primary};
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: ${({ theme }) => theme.colors.primaryAccent};
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(90,90,90,.2);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
 export function Header() {
   const dispatch: any = useDispatch();
   const search = useSelector((s: RootState) => s.fs.search);
   const selectedFolderId = useSelector((s: RootState) => s.fs.selectedFolderId);
   const { mode, toggle } = useThemeMode();
+  const { auth } = useSelector((s: RootState) => s.fs);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -230,10 +268,31 @@ export function Header() {
         <Icon src={uploadIcon} alt="Загрузить файл" />
         Загрузить файл
       </Button>
-      <Toggle onClick={toggle} title="Сменить тему">
-        <Icon src={themeIcon} alt="Тема" />
-        {mode === 'light' ? '' : ''}
-      </Toggle>
+        <Toggle onClick={toggle} title="Сменить тему">
+          <Icon src={themeIcon} alt="Тема" />
+          {mode === 'light' ? '' : ''}
+        </Toggle>
+        
+        <Actions>
+          <Avatar 
+            onClick={() => {
+              if (auth.user) {
+                setUserDropdownOpen(!userDropdownOpen);
+              } else {
+                setAuthOpen(true);
+              }
+            }} 
+            title={auth.user ? `${auth.user.name} ${auth.user.second_name}` : 'Войти'}
+          >
+            {auth.user ? auth.user.name.charAt(0).toUpperCase() : '👤'}
+          </Avatar>
+          {auth.user && (
+            <UserDropdown 
+              isOpen={userDropdownOpen} 
+              onClose={() => setUserDropdownOpen(false)} 
+            />
+          )}
+        </Actions>
       {uploadOpen && (
         <UploadModalBg onClick={() => !uploading && setUploadOpen(false)}>
           <UploadModal onClick={e => e.stopPropagation()}>
@@ -267,6 +326,8 @@ export function Header() {
           </UploadModal>
         </UploadModalBg>
       )}
+      
+      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
     </Bar>
   );
 }

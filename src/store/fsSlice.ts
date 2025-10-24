@@ -11,6 +11,27 @@ export interface FsNode {
   url?: string; // for files, optional (s3 url)
 }
 
+export interface User {
+  uuid: string;
+  aleph_id: string;
+  id: string;
+  name: string;
+  second_name: string;
+  patronymic: string;
+  phone: string;
+  email: string;
+  avatar: string | null;
+  access: number;
+}
+
+export interface AuthState {
+  user: User | null;
+  token: string | null;
+  isAuthenticated: boolean;
+  loading: boolean;
+  error: string | null;
+}
+
 export interface FsState {
   root: FsNode;
   selectedFolderId: string; // текущая открытая папка
@@ -18,7 +39,17 @@ export interface FsState {
   search: string;
   loading: boolean;
   error: string | null;
+  auth: AuthState;
 }
+
+// Восстанавливаем токен из localStorage при инициализации
+const getStoredToken = () => {
+  try {
+    return localStorage.getItem('auth_token');
+  } catch {
+    return null;
+  }
+};
 
 const initialState: FsState = {
   root: {
@@ -31,7 +62,14 @@ const initialState: FsState = {
   selectedFileId: null,
   search: '',
   loading: false,
-  error: null
+  error: null,
+  auth: {
+    user: null,
+    token: getStoredToken(),
+    isAuthenticated: !!getStoredToken(),
+    loading: false,
+    error: null
+  }
 };
 
 function findNodeById(node: FsNode, id: string): FsNode | null {
@@ -305,6 +343,88 @@ export const moveNodeAPI = createAsyncThunk(
   }
 );
 
+// Auth API methods
+export const sendSms = createAsyncThunk(
+  'auth/sendSms',
+  async (phone: string, { rejectWithValue }) => {
+    try {
+      const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/send_sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data && data.message) || 'Ошибка отправки SMS');
+      }
+      return await res.json();
+    } catch (e: any) {
+      return rejectWithValue(e.message || 'Ошибка');
+    }
+  }
+);
+
+export const confirmSms = createAsyncThunk(
+  'auth/confirmSms',
+  async ({ phone, code }: { phone: string; code: string }, { rejectWithValue }) => {
+    try {
+      const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/confirm_sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone, code })
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data && data.message) || 'Неверный код');
+      }
+      return await res.json();
+    } catch (e: any) {
+      return rejectWithValue(e.message || 'Ошибка');
+    }
+  }
+);
+
+export const getUser = createAsyncThunk(
+  'auth/getUser',
+  async (token: string, { rejectWithValue }) => {
+    try {
+      const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/user/get', {
+        method: 'GET',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data && data.message) || 'Ошибка получения пользователя');
+      }
+      return await res.json();
+    } catch (e: any) {
+      return rejectWithValue(e.message || 'Ошибка');
+    }
+  }
+);
+
+export const logout = createAsyncThunk(
+  'auth/logout',
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/user/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data && data.message) || 'Ошибка выхода');
+      }
+      return await res.json();
+    } catch (e: any) {
+      return rejectWithValue(e.message || 'Ошибка');
+    }
+  }
+);
+
 const fsSlice = createSlice({
   name: 'fs',
   initialState,
@@ -344,6 +464,71 @@ const fsSlice = createSlice({
       .addCase(fetchTree.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message ?? 'Ошибка загрузки';
+      })
+      // Auth cases
+      .addCase(sendSms.pending, (state) => {
+        state.auth.loading = true;
+        state.auth.error = null;
+      })
+      .addCase(sendSms.fulfilled, (state) => {
+        state.auth.loading = false;
+      })
+      .addCase(sendSms.rejected, (state, action) => {
+        state.auth.loading = false;
+        state.auth.error = action.payload as string;
+      })
+      .addCase(confirmSms.pending, (state) => {
+        state.auth.loading = true;
+        state.auth.error = null;
+      })
+      .addCase(confirmSms.fulfilled, (state, action) => {
+        state.auth.loading = false;
+        state.auth.token = action.payload.token;
+        state.auth.user = action.payload.user;
+        state.auth.isAuthenticated = true;
+        // Сохраняем токен в localStorage
+        try {
+          localStorage.setItem('auth_token', action.payload.token);
+        } catch (error) {
+          console.error('Ошибка сохранения токена:', error);
+        }
+      })
+      .addCase(confirmSms.rejected, (state, action) => {
+        state.auth.loading = false;
+        state.auth.error = action.payload as string;
+      })
+      .addCase(getUser.pending, (state) => {
+        state.auth.loading = true;
+        state.auth.error = null;
+      })
+      .addCase(getUser.fulfilled, (state, action) => {
+        state.auth.loading = false;
+        state.auth.user = action.payload;
+        state.auth.isAuthenticated = true;
+      })
+      .addCase(getUser.rejected, (state, action) => {
+        state.auth.loading = false;
+        state.auth.error = action.payload as string;
+      })
+      .addCase(logout.pending, (state) => {
+        state.auth.loading = true;
+        state.auth.error = null;
+      })
+      .addCase(logout.fulfilled, (state) => {
+        state.auth.loading = false;
+        state.auth.user = null;
+        state.auth.token = null;
+        state.auth.isAuthenticated = false;
+        // Очищаем токен из localStorage
+        try {
+          localStorage.removeItem('auth_token');
+        } catch (error) {
+          console.error('Ошибка удаления токена:', error);
+        }
+      })
+      .addCase(logout.rejected, (state, action) => {
+        state.auth.loading = false;
+        state.auth.error = action.payload as string;
       });
   }
 });
