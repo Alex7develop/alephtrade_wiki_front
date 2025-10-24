@@ -6,6 +6,8 @@ import rehypeRaw from 'rehype-raw';
 import { jsPDF } from 'jspdf';
 import { marked } from 'marked';
 import html2canvas from 'html2canvas';
+import downloadIcon from '/icon/download_15545982.png';
+import deleteIcon from '/icon/dustbin_14492622.png';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from '@/store/store';
 import {
@@ -23,15 +25,18 @@ const Wrap = styled.div`
 
 const Toolbar = styled.div`
   display: flex;
-  gap: 8px;
+  gap: 12px;
   align-items: center;
-  padding: 12px 16px;
+  padding: 16px 20px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  box-shadow: ${({ theme }) => theme.shadows.inner};
+  background: ${({ theme }) => theme.colors.surface};
+  box-shadow: 0 1px 3px rgba(0,0,0,.05);
 `;
 
 const Title = styled.div`
   font-weight: 600;
+  font-size: 16px;
+  color: ${({ theme }) => theme.colors.text};
 `;
 
 const ToolbarSpacer = styled.div`
@@ -39,9 +44,9 @@ const ToolbarSpacer = styled.div`
 `;
 
 const ActionBtn = styled.button`
-  height: 34px;
-  padding: 0 12px;
-  border-radius: 10px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 8px;
   background: ${({ theme }) => theme.colors.surfaceAlt};
   color: ${({ theme }) => theme.colors.text};
   border: 1px solid ${({ theme }) => theme.colors.border};
@@ -49,17 +54,30 @@ const ActionBtn = styled.button`
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  transition: background 0.15s ease, border-color 0.15s ease;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
   &:hover {
     background: ${({ theme }) => theme.colors.surface};
+    border-color: ${({ theme }) => theme.colors.primary};
+    transform: translateY(-1px);
+  }
+  &:active {
+    transform: translateY(0);
   }
 `;
 
+const Icon = styled.img`
+  width: 16px;
+  height: 16px;
+`;
+
 const Body = styled.div`
-  padding: 16px;
+  padding: 24px;
   color: ${({ theme }) => theme.colors.text};
   height: 100%;
   overflow: auto;
+  background: ${({ theme }) => theme.colors.surface};
 `;
 
 const PdfViewer = styled.iframe`
@@ -513,8 +531,9 @@ export function Preview() {
           <ActionBtn
             onClick={deleteFile}
             title="Удалить файл"
-            style={{ color: '#d4183a', marginRight: 4 }}
+            style={{ color: '#fff', background: '#8a8a8a', borderColor: '#8a8a8a' }}
           >
+            <Icon src={deleteIcon} alt="Удалить" />
             Удалить
           </ActionBtn>
         )}
@@ -522,14 +541,16 @@ export function Preview() {
           <ActionBtn
             onClick={deleteFolder}
             title="Удалить папку"
-            style={{ color: '#d4183a', marginRight: 4 }}
+            style={{ color: '#fff', background: '#8a8a8a', borderColor: '#8a8a8a' }}
           >
-            ✖
+            <Icon src={deleteIcon} alt="Удалить папку" />
+            Удалить папку
           </ActionBtn>
         )}
         {isMd && (
           <ActionBtn onClick={downloadMd} title="Скачать как PDF">
-            ⬇ Скачать PDF
+            <Icon src={downloadIcon} alt="Скачать PDF" />
+            Скачать PDF
           </ActionBtn>
         )}
       </Toolbar>

@@ -75,35 +75,35 @@ export const darkTheme: AppTheme = {
 export const lightTheme: AppTheme = {
   mode: 'light',
   colors: {
-    background: '#f7f9fc',
+    background: '#ffffff',
     surface: '#ffffff',
-    surfaceAlt: '#f2f5fb',
-    primary: '#1e63ff',
-    primaryAccent: '#4a84ff',
-    text: '#0e1a2b',
-    textMuted: '#5c6b82',
-    border: '#e1e6ef',
-    success: '#16a085',
-    warning: '#ffb703',
-    danger: '#d90429'
+    surfaceAlt: '#f5f5f5',
+    primary: '#5a5a5a',
+    primaryAccent: '#6c6c6c',
+    text: '#1a1a1a',
+    textMuted: '#8a8a8a',
+    border: '#e0e0e0',
+    success: '#4a4a4a',
+    warning: '#6a6a6a',
+    danger: '#8a8a8a'
   },
   shadows: {
-    sm: '0 1px 2px rgba(0,0,0,.06)',
-    md: '0 8px 24px rgba(0,0,0,.08)',
-    inner: '0 1px 0 rgba(255,255,255,.9) inset, 0 1px 2px rgba(0,0,0,.04) inset'
+    sm: '0 1px 3px rgba(0,0,0,.08)',
+    md: '0 4px 12px rgba(0,0,0,.08)',
+    inner: '0 1px 0 rgba(255,255,255,.8) inset, 0 1px 2px rgba(0,0,0,.03) inset'
   },
   radius: {
-    sm: '8px',
-    md: '12px',
-    lg: '16px'
+    sm: '6px',
+    md: '8px',
+    lg: '12px'
   },
   fontSize: {
-    sm: '14px',
-    md: '16px',
-    lg: '18px',
+    sm: '13px',
+    md: '15px',
+    lg: '17px',
   },
   gradients: {
-    primary: 'linear-gradient(180deg, #1e63ff, #4a84ff)',
+    primary: 'linear-gradient(135deg, #5a5a5a, #6c6c6c)',
   },
   spacing: (n: number) => `${n * 8}px`
 };
@@ -129,24 +129,59 @@ export const GlobalStyle = createGlobalStyle`
     margin: 0;
     background: ${({ theme }) => theme.colors.background};
     color: ${({ theme }) => theme.colors.text};
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji";
-    font-size: 16px;
-    line-height: 1.5;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    font-weight: 400;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.01em;
   }
-  /* красивые тёмные скроллбары */
+  
+  /* Профессиональные скроллбары */
   * {
     scrollbar-width: thin;
     scrollbar-color: ${({ theme }) => theme.colors.border} transparent;
   }
-  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
   *::-webkit-scrollbar-track { background: transparent; }
   *::-webkit-scrollbar-thumb {
     background: ${({ theme }) => theme.colors.border};
-    border-radius: 8px;
-    border: 2px solid transparent;
+    border-radius: 4px;
+    border: 1px solid transparent;
     background-clip: padding-box;
   }
-  ::selection { background: ${({ theme }) => theme.colors.primary}; color: #fff; }
+  *::-webkit-scrollbar-thumb:hover {
+    background: ${({ theme }) => theme.colors.textMuted};
+  }
+  
+  ::selection { 
+    background: ${({ theme }) => theme.colors.primary}; 
+    color: #fff; 
+  }
+  
+  /* Улучшенная типографика */
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    line-height: 1.3;
+    margin: 0;
+    letter-spacing: -0.02em;
+  }
+  
+  p {
+    margin: 0 0 1em 0;
+  }
+  
+  /* Стили для кнопок */
+  button {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+  }
+  
+  /* Улучшенные фокусы */
+  *:focus-visible {
+    outline: 2px solid ${({ theme }) => theme.colors.primary};
+    outline-offset: 2px;
+  }
 `;

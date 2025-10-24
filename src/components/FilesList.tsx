@@ -6,39 +6,56 @@ import { selectFile, moveNodeAPI } from '@/store/fsSlice';
 import { renameFileAPI } from '@/store/fsSlice';
 
 const Wrap = styled.div`
-  padding: 16px;
+  padding: 20px;
+  background: ${({ theme }) => theme.colors.surface};
+  height: 100%;
+  overflow-y: auto;
 `;
 
 const Row = styled.div<{ selected?: boolean }>`
   display: grid;
-  grid-template-columns: 1fr 120px;
+  grid-template-columns: 1fr 100px;
   align-items: center;
-  height: 40px;
-  padding: 0 12px;
+  height: 48px;
+  padding: 0 16px;
   border-radius: ${({ theme }) => theme.radius.sm};
   cursor: pointer;
-  background: ${({ selected, theme }) => (selected ? theme.colors.surface : 'transparent')};
-  &:hover { background: ${({ theme }) => theme.colors.surfaceAlt}; }
-  overflow: hidden;
+  background: ${({ selected, theme }) => (selected ? theme.colors.primary : 'transparent')};
+  color: ${({ selected, theme }) => (selected ? '#fff' : theme.colors.text)};
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  margin-bottom: 4px;
+  border: 1px solid transparent;
+  
+  &:hover { 
+    background: ${({ selected, theme }) => (selected ? theme.colors.primary : theme.colors.surfaceAlt)};
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0,0,0,.1);
+  }
 `;
 
 const Title = styled.div`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 `;
+
 const Type = styled.div`
   justify-self: end;
-  color: ${({ theme }) => theme.colors.primaryAccent};
-  background: rgba(58,134,255,.12);
-  border: 1px solid rgba(58,134,255,.25);
-  height: 26px;
-  padding: 0 10px;
+  color: ${({ theme }) => theme.colors.textMuted};
+  background: ${({ theme }) => theme.colors.surfaceAlt};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  height: 24px;
+  padding: 0 8px;
   display: inline-flex;
   align-items: center;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -72,6 +89,16 @@ export function FilesList() {
     if (mime.startsWith('image/')) return mime.split('/')[1];
     if (mime.endsWith('wordprocessingml.document')) return 'docx';
     return mime.split('/').pop() || 'file';
+  }
+
+  function getFileIcon(mime?: string): string {
+    if (!mime) return '📄';
+    if (mime === 'application/pdf') return '📄';
+    if (mime === 'text/markdown') return '📝';
+    if (mime === 'text/plain') return '📄';
+    if (mime.startsWith('image/')) return '🖼️';
+    if (mime.endsWith('wordprocessingml.document')) return '📄';
+    return '📄';
   }
 
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -145,7 +172,10 @@ export function FilesList() {
               }}
             />
           ) : (
-            <Title>{f.name}</Title>
+            <Title>
+              <span>{getFileIcon(f.mime)}</span>
+              {f.name}
+            </Title>
           )}
           <Type>{getTypeLabel(f.mime)}</Type>
         </Row>

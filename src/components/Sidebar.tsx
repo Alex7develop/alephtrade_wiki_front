@@ -1,44 +1,72 @@
 import styled from 'styled-components';
 import { useDispatch, useSelector } from 'react-redux';
 import { useMemo, useState } from 'react';
-import { selectFolder, moveNodeAPI } from '@/store/fsSlice';
+import { selectFolder, selectFile, moveNodeAPI } from '@/store/fsSlice';
 import type { RootState } from '@/store/store';
+import fileIcon from '/icon/icons8-файл.svg';
 
 const TreeWrap = styled.div`
-  padding: 12px;
+  padding: 16px;
+  background: ${({ theme }) => theme.colors.surface};
+  border-right: 1px solid ${({ theme }) => theme.colors.border};
+  height: 100%;
 `;
 
 const ItemRow = styled.div<{ selected?: boolean }>`
   display: flex;
   align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 8px;
+  gap: 10px;
+  height: 36px;
+  padding: 0 12px;
   border-radius: ${({ theme }) => theme.radius.sm};
   cursor: pointer;
   color: ${({ theme }) => theme.colors.text};
-  background: ${({ selected, theme }) => (selected ? 'rgba(255,255,255,.03)' : 'transparent')};
-  &:hover { background: rgba(255,255,255,.03); }
+  background: ${({ selected, theme }) => (selected ? theme.colors.primary : 'transparent')};
+  color: ${({ selected, theme }) => (selected ? '#fff' : theme.colors.text)};
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  margin-bottom: 2px;
+  
+  &:hover { 
+    background: ${({ selected, theme }) => (selected ? theme.colors.primary : theme.colors.surfaceAlt)};
+    transform: translateX(2px);
+  }
 `;
 
 const Caret = styled.span`
-  width: 16px;
+  width: 20px;
   text-align: center;
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.textMuted};
+`;
+
+const Icon = styled.img`
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+  filter: ${({ theme }) => theme.mode === 'dark' ? 'brightness(0) invert(1)' : 'none'};
 `;
 
 const Name = styled.span`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
 `;
 
 function matches(query: string, name: string) {
   return name.toLowerCase().includes(query.trim().toLowerCase());
 }
 
+function getFileIcon(mime?: string): JSX.Element {
+  return <Icon src={fileIcon} alt="Файл" />;
+}
+
 function TreeNode({ node, level, expanded, toggle }: { node: any; level: number; expanded: Set<string>; toggle: (id: string) => void }) {
   const dispatch: any = useDispatch();
   const selectedFolderId = useSelector((s: RootState) => s.fs.selectedFolderId);
+  const selectedFileId = useSelector((s: RootState) => s.fs.selectedFileId);
   const search = useSelector((s: RootState) => s.fs.search);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
@@ -53,11 +81,12 @@ function TreeNode({ node, level, expanded, toggle }: { node: any; level: number;
   }
 
   const isExpanded = expanded.has(node.id);
+  const isSelected = isFolder ? selectedFolderId === node.id : selectedFileId === node.id;
 
   return (
     <div>
       <ItemRow
-        selected={selectedFolderId === node.id}
+        selected={isSelected}
         style={{
           paddingLeft: 8 + level * 16,
           boxShadow: dropTargetId === node.id ? 'inset 0 0 0 2px #16aaff' : undefined,
@@ -67,6 +96,8 @@ function TreeNode({ node, level, expanded, toggle }: { node: any; level: number;
           if (isFolder) {
             toggle(node.id);
             dispatch(selectFolder(node.id));
+          } else {
+            dispatch(selectFile(node.id));
           }
         }}
         title={node.name}
@@ -85,13 +116,20 @@ function TreeNode({ node, level, expanded, toggle }: { node: any; level: number;
           setDropTargetId(null);
           dispatch(moveNodeAPI({ uuid: sourceId, parent_uuid: node.id }));
         }}
-        draggable={false}
+        draggable={!isFolder}
+        onDragStart={e => {
+          if (!isFolder) {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', node.id);
+          }
+        }}
       >
-        <Caret>{isFolder ? (isExpanded ? '▾' : '▸') : null}</Caret>
+        <Caret>
+          {isFolder ? (isExpanded ? '📂' : '📁') : getFileIcon(node.mime)}
+        </Caret>
         <Name>{node.name}</Name>
       </ItemRow>
       {isFolder && isExpanded && (node.children ?? [])
-        .filter((c: any) => c.type === 'folder')
         .map((c: any) => (
           <TreeNode key={c.id} node={c} level={level + 1} expanded={expanded} toggle={toggle} />
         ))}
