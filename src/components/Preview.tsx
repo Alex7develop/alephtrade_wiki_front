@@ -3,10 +3,17 @@ import { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
+import { jsPDF } from 'jspdf';
 import { marked } from 'marked';
+import html2canvas from 'html2canvas';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from '@/store/store';
-import { deleteFileAPI, deleteFolderAPI, selectFile, selectFolder } from '@/store/fsSlice';
+import {
+  deleteFileAPI,
+  deleteFolderAPI,
+  selectFile,
+  selectFolder,
+} from '@/store/fsSlice';
 
 const Wrap = styled.div`
   height: 100%;
@@ -22,7 +29,6 @@ const Toolbar = styled.div`
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   box-shadow: ${({ theme }) => theme.shadows.inner};
 `;
-
 
 const Title = styled.div`
   font-weight: 600;
@@ -43,8 +49,10 @@ const ActionBtn = styled.button`
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  transition: background .15s ease, border-color .15s ease;
-  &:hover { background: ${({ theme }) => theme.colors.surface}; }
+  transition: background 0.15s ease, border-color 0.15s ease;
+  &:hover {
+    background: ${({ theme }) => theme.colors.surface};
+  }
 `;
 
 const Body = styled.div`
@@ -80,7 +88,7 @@ const InfoRow = styled.div`
   display: flex;
   justify-content: space-between;
   margin-bottom: 8px;
-  
+
   &:last-child {
     margin-bottom: 0;
   }
@@ -112,16 +120,45 @@ const MdWrap = styled.div`
   border-radius: ${({ theme }) => theme.radius.sm};
   border: 1px solid ${({ theme }) => theme.colors.border};
   padding: 16px;
-  
+
   /* базовые стили markdown */
-  h1, h2, h3 { margin: 16px 0 8px; }
-  p { margin: 8px 0; }
-  code { background: rgba(255,255,255,.06); padding: 2px 6px; border-radius: 6px; }
-  pre { background: rgba(255,255,255,.06); padding: 12px; border-radius: 8px; overflow: auto; }
-  a { color: ${({ theme }) => theme.colors.primary}; text-decoration: none; }
-  table { width: 100%; border-collapse: collapse; }
-  th, td { border: 1px solid ${({ theme }) => theme.colors.border}; padding: 8px; }
-  blockquote { border-left: 3px solid ${({ theme }) => theme.colors.primary}; padding-left: 12px; color: ${({ theme }) => theme.colors.textMuted}; }
+  h1,
+  h2,
+  h3 {
+    margin: 16px 0 8px;
+  }
+  p {
+    margin: 8px 0;
+  }
+  code {
+    background: rgba(255, 255, 255, 0.06);
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+  pre {
+    background: rgba(255, 255, 255, 0.06);
+    padding: 12px;
+    border-radius: 8px;
+    overflow: auto;
+  }
+  a {
+    color: ${({ theme }) => theme.colors.primary};
+    text-decoration: none;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th,
+  td {
+    border: 1px solid ${({ theme }) => theme.colors.border};
+    padding: 8px;
+  }
+  blockquote {
+    border-left: 3px solid ${({ theme }) => theme.colors.primary};
+    padding-left: 12px;
+    color: ${({ theme }) => theme.colors.textMuted};
+  }
 `;
 
 export function Preview() {
@@ -150,7 +187,10 @@ export function Preview() {
   // Load markdown content when applicable. The hook is always called.
   useEffect(() => {
     let aborted = false;
-    const isMd = !!(node && ((node.mime === 'text/markdown') || node.url?.toLowerCase().endsWith('.md')));
+    const isMd = !!(
+      node &&
+      (node.mime === 'text/markdown' || node.url?.toLowerCase().endsWith('.md'))
+    );
     if (isMd && node?.url) {
       const mdUrl = node.url;
       setMdLoading(true);
@@ -168,7 +208,7 @@ export function Preview() {
           try {
             // Convert markdown to HTML and inject base href so relative assets resolve to source directory
             const htmlBody = marked.parse(t);
-            const baseHref = (node.url || '').replace(/([^/]+)$/,''); // directory of the file
+            const baseHref = (node.url || '').replace(/([^/]+)$/, ''); // directory of the file
             const themedStyles = `
               <style>
                 body { margin: 0; font: 14px/1.6 -apple-system, Segoe UI, Roboto, Inter, Arial; color: ${theme.colors.text}; background: ${theme.colors.surfaceAlt}; }
@@ -188,8 +228,12 @@ export function Preview() {
             setMdError(e?.message || 'Ошибка парсинга Markdown');
           }
         })
-        .catch((e: any) => { if (!aborted) setMdError(e.message || 'Ошибка загрузки'); })
-        .finally(() => { if (!aborted) setMdLoading(false); });
+        .catch((e: any) => {
+          if (!aborted) setMdError(e.message || 'Ошибка загрузки');
+        })
+        .finally(() => {
+          if (!aborted) setMdLoading(false);
+        });
     } else {
       // reset when not markdown
       setMdLoading(false);
@@ -197,16 +241,21 @@ export function Preview() {
       setMdText('');
       setMdHtml('');
     }
-    return () => { aborted = true; };
+    return () => {
+      aborted = true;
+    };
   }, [node]);
 
   // Rebuild HTML when theme changes without refetching
   useEffect(() => {
-    const isMd = !!(node && ((node.mime === 'text/markdown') || node.url?.toLowerCase().endsWith('.md')));
+    const isMd = !!(
+      node &&
+      (node.mime === 'text/markdown' || node.url?.toLowerCase().endsWith('.md'))
+    );
     if (!isMd || !mdText || !node?.url) return;
     try {
       const htmlBody = marked.parse(mdText);
-      const baseHref = (node.url || '').replace(/([^/]+)$/,'');
+      const baseHref = (node.url || '').replace(/([^/]+)$/, '');
       const themedStyles = `
         <style>
           body { margin: 0; font: 14px/1.6 -apple-system, Segoe UI, Roboto, Inter, Arial; color: ${theme.colors.text}; background: ${theme.colors.surfaceAlt}; }
@@ -222,7 +271,9 @@ export function Preview() {
         </style>`;
       const documentHtml = `<!doctype html><html><head><meta charset="utf-8"/><base href="${baseHref}">${themedStyles}</head><body><div class="container">${htmlBody}</div></body></html>`;
       setMdHtml(documentHtml);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }, [theme, mdText, node]);
 
   if (!node) {
@@ -238,27 +289,206 @@ export function Preview() {
 
   const isFolder = node.type === 'folder';
   const isPdf = node.mime === 'application/pdf';
-  const isMd = node.mime === 'text/markdown' || node.url?.toLowerCase().endsWith('.md');
-  
-  function downloadMd() {
+  const isMd =
+    node.mime === 'text/markdown' || node.url?.toLowerCase().endsWith('.md');
+
+  async function downloadMd() {
     if (!node?.url) return;
     if (isMd && mdText) {
-      const blob = new Blob([mdText], { type: 'text/markdown;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const name = (node.name?.endsWith('.md') ? node.name : `${node.name || 'document'}.md`);
-      a.download = name;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      try {
+        // Преобразуем Markdown в HTML с правильной кодировкой
+        const htmlBody = await marked.parse(mdText);
+        const baseHref = (node.url || '').replace(/([^/]+)$/, '');
+        
+        const documentHtml = `
+          <!doctype html>
+          <html lang="ru">
+          <head>
+            <meta charset="utf-8"/>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+            <base href="${baseHref}">
+            <style>
+              @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+              body { 
+                font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; 
+                font-size: 14px; 
+                line-height: 1.6; 
+                color: #333; 
+                background: white; 
+                padding: 20px;
+                margin: 0;
+                max-width: 800px;
+                margin: 0 auto;
+              }
+              h1, h2, h3, h4, h5, h6 { 
+                color: #333; 
+                font-weight: 600;
+                margin: 20px 0 10px 0;
+              }
+              h1 { font-size: 28px; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+              h2 { font-size: 24px; }
+              h3 { font-size: 20px; }
+              h4 { font-size: 18px; }
+              p { margin: 12px 0; }
+              a { color: #0066cc; text-decoration: none; }
+              a:hover { text-decoration: underline; }
+              pre, code { 
+                background: #f5f5f5; 
+                color: #333; 
+                font-family: 'Courier New', 'Monaco', monospace;
+                border-radius: 4px;
+              }
+              pre { 
+                padding: 16px; 
+                overflow: auto; 
+                white-space: pre-wrap;
+                border: 1px solid #ddd;
+              }
+              code { 
+                padding: 2px 6px; 
+                font-size: 13px;
+              }
+              img { 
+                max-width: 100%; 
+                height: auto; 
+                display: block;
+                margin: 10px 0;
+              }
+              table { 
+                width: 100%; 
+                border-collapse: collapse; 
+                margin: 16px 0;
+                border: 1px solid #ddd;
+              }
+              th, td { 
+                border: 1px solid #ddd; 
+                padding: 12px; 
+                text-align: left;
+              }
+              th { 
+                background: #f8f9fa; 
+                font-weight: 600;
+              }
+              blockquote { 
+                border-left: 4px solid #0066cc; 
+                padding-left: 16px; 
+                color: #666; 
+                margin: 16px 0;
+                font-style: italic;
+              }
+              ul, ol { 
+                margin: 12px 0; 
+                padding-left: 24px; 
+              }
+              li { 
+                margin: 6px 0; 
+              }
+              hr {
+                border: none;
+                border-top: 1px solid #eee;
+                margin: 20px 0;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="markdown-content">${htmlBody}</div>
+          </body>
+          </html>`;
+
+        // Создаем временный элемент для рендеринга HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = documentHtml;
+        tempDiv.style.position = 'absolute';
+        tempDiv.style.left = '-9999px';
+        tempDiv.style.top = '-9999px';
+        tempDiv.style.width = '800px';
+        tempDiv.style.background = 'white';
+        document.body.appendChild(tempDiv);
+
+        // Ждем загрузки шрифтов
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Конвертируем в canvas
+        const canvas = await html2canvas(tempDiv, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          width: 800,
+          height: tempDiv.scrollHeight
+        });
+
+        // Удаляем временный элемент
+        document.body.removeChild(tempDiv);
+
+        // Создаем PDF
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({
+          unit: 'mm',
+          format: 'a4',
+          orientation: 'portrait'
+        });
+
+        const imgWidth = 210; // A4 width in mm
+        const pageHeight = 295; // A4 height in mm
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        let heightLeft = imgHeight;
+
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft >= 0) {
+          position = heightLeft - imgHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+        }
+
+        // Сохраняем PDF
+        const name = node.name?.endsWith('.md')
+          ? node.name.replace('.md', '.pdf')
+          : `${node.name || 'document'}.pdf`;
+        pdf.save(name);
+
+      } catch (error) {
+        console.error('Ошибка генерации PDF:', error);
+        // Fallback - скачиваем как HTML
+        const htmlBody = await marked.parse(mdText);
+        const baseHref = (node.url || '').replace(/([^/]+)$/, '');
+        const documentHtml = `
+          <!doctype html>
+          <html lang="ru">
+          <head>
+            <meta charset="utf-8"/>
+            <base href="${baseHref}">
+            <style>
+              body { font-family: Arial, sans-serif; padding: 20px; }
+              h1, h2, h3 { color: #333; }
+              pre { background: #f5f5f5; padding: 10px; }
+            </style>
+          </head>
+          <body>${htmlBody}</body>
+          </html>`;
+        
+        const blob = new Blob([documentHtml], { type: 'text/html;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = node.name?.endsWith('.md')
+          ? node.name.replace('.md', '.html')
+          : `${node.name || 'document'}.html`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
     } else {
-      // fallback: просто открыть исходный URL (браузер решит скачать/открыть)
       window.open(node.url, '_blank');
     }
   }
-  
+
   const deleteFile = async () => {
     if (!node?.id) return;
     if (window.confirm('Удалить файл безвозвратно?')) {
@@ -280,18 +510,26 @@ export function Preview() {
       <Toolbar>
         <ToolbarSpacer />
         {!isFolder && (
-          <ActionBtn onClick={deleteFile} title="Удалить файл" style={{ color:'#d4183a', marginRight:4 }}>
+          <ActionBtn
+            onClick={deleteFile}
+            title="Удалить файл"
+            style={{ color: '#d4183a', marginRight: 4 }}
+          >
             Удалить
           </ActionBtn>
         )}
         {isFolder && node.id !== 'root' && (
-          <ActionBtn onClick={deleteFolder} title="Удалить папку" style={{ color:'#d4183a', marginRight:4 }}>
+          <ActionBtn
+            onClick={deleteFolder}
+            title="Удалить папку"
+            style={{ color: '#d4183a', marginRight: 4 }}
+          >
             ✖
           </ActionBtn>
         )}
         {isMd && (
-          <ActionBtn onClick={downloadMd} title="Скачать .md">
-            ⬇ Скачать
+          <ActionBtn onClick={downloadMd} title="Скачать как PDF">
+            ⬇ Скачать PDF
           </ActionBtn>
         )}
       </Toolbar>
@@ -314,13 +552,15 @@ export function Preview() {
                 </InfoRow>
               )}
             </FileInfo> */}
-            
+
             {isPdf && node.url ? (
               <PdfViewer src={node.url} title={node.name} />
             ) : isMd ? (
               <MdWrap>
                 {mdLoading && <div>Загрузка Markdown…</div>}
-                {mdError && <div style={{ color: '#ff6b6b' }}>Ошибка: {mdError}</div>}
+                {mdError && (
+                  <div style={{ color: '#ff6b6b' }}>Ошибка: {mdError}</div>
+                )}
                 {!mdLoading && !mdError && (
                   <HtmlDoc srcDoc={mdHtml} title={node.name} />
                 )}
@@ -331,8 +571,12 @@ export function Preview() {
                 <div>Предпросмотр для этого типа файла пока недоступен</div>
                 {node.url && (
                   <div style={{ marginTop: '8px', fontSize: '14px' }}>
-                    <a href={node.url} target="_blank" rel="noopener noreferrer" 
-                       style={{ color: '#3a86ff', textDecoration: 'none' }}>
+                    <a
+                      href={node.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#3a86ff', textDecoration: 'none' }}
+                    >
                       Открыть в новой вкладке
                     </a>
                   </div>
@@ -345,5 +589,3 @@ export function Preview() {
     </Wrap>
   );
 }
-
-

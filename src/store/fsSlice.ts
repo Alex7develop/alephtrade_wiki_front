@@ -149,7 +149,7 @@ export const createFolderAPI = createAsyncThunk(
         ...(parent_uuid ? { parent_uuid } : {}),
         access: 1
       };
-      const res = await fetch('https://backendwiki.alephtrade.com/api/v2/create_folder', {
+      const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/create_folder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(reqBody)
@@ -180,7 +180,7 @@ export const uploadFileAPI = createAsyncThunk(
       if (parentId && parentId !== 'root') form.append('parent_uuid', parentId);
       form.append('access', '1');
 
-      const res = await fetch('https://backendwiki.alephtrade.com/api/v2/upload_file', {
+      const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/upload_file', {
         method: 'POST',
         body: form
       });
@@ -206,7 +206,7 @@ export const renameFileAPI = createAsyncThunk(
   ) => {
     try {
       const res = await fetch(
-        `https://backendwiki.alephtrade.com/api/v2/update_file/${uuid}`,
+        `https://api.alephtrade.com/backend_wiki/api/v2/update_file/${uuid}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -234,7 +234,7 @@ export const deleteFileAPI = createAsyncThunk(
   ) => {
     try {
       const res = await fetch(
-        `https://backendwiki.alephtrade.com/api/v2/delete_file/${uuid}`,
+        `https://api.alephtrade.com/backend_wiki/api/v2/delete_file/${uuid}`,
         { method: 'DELETE' }
       );
       if (!res.ok) {
@@ -258,7 +258,7 @@ export const deleteFolderAPI = createAsyncThunk(
   ) => {
     try {
       const res = await fetch(
-        `https://backendwiki.alephtrade.com/api/v2/delete_folder/${uuid}`,
+        `https://api.alephtrade.com/backend_wiki/api/v2/delete_folder/${uuid}`,
         { method: 'DELETE' }
       );
       if (!res.ok) {
@@ -282,7 +282,7 @@ export const moveNodeAPI = createAsyncThunk(
   ) => {
     try {
       const res = await fetch(
-        `https://backendwiki.alephtrade.com/api/v2/update_structure/${uuid}`,
+        `https://api.alephtrade.com/backend_wiki/api/v2/update_structure/${uuid}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
