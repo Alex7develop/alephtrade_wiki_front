@@ -100,9 +100,9 @@ const Toggle = styled.button`
   height: 36px;
   padding: 0 12px;
   border-radius: 8px;
-  background: ${({ theme }) => theme.colors.surfaceAlt};
-  color: ${({ theme }) => theme.colors.text};
-  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ theme }) => theme.colors.primary};
+  color: #fff;
+  border: none;
   cursor: pointer;
   font-size: 14px;
   font-weight: 500;
@@ -111,8 +111,12 @@ const Toggle = styled.button`
   gap: 6px;
   transition: all 0.2s ease;
   &:hover {
-    background: ${({ theme }) => theme.colors.surface};
-    border-color: ${({ theme }) => theme.colors.primary};
+    background: ${({ theme }) => theme.colors.primaryAccent};
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(90,90,90,.2);
+  }
+  &:active {
+    transform: translateY(0);
   }
 `;
 
@@ -228,7 +232,7 @@ export function Header() {
       </Button>
       <Toggle onClick={toggle} title="Сменить тему">
         <Icon src={themeIcon} alt="Тема" />
-        {mode === 'light' ? 'Тёмная' : 'Светлая'}
+        {mode === 'light' ? '' : ''}
       </Toggle>
       {uploadOpen && (
         <UploadModalBg onClick={() => !uploading && setUploadOpen(false)}>
