@@ -184,4 +184,46 @@ export const GlobalStyle = createGlobalStyle`
     outline: 2px solid ${({ theme }) => theme.colors.primary};
     outline-offset: 2px;
   }
+
+  /* Мобильные устройства (до 480px) */
+  @media (max-width: 480px) {
+    body {
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    
+    /* Уменьшаем отступы для мобильных */
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: ${({ theme }) => theme.colors.border} transparent;
+    }
+  }
+
+  /* Планшеты (481px - 768px) */
+  @media (min-width: 481px) and (max-width: 768px) {
+    body {
+      font-size: 15px;
+    }
+  }
+
+  /* Десктоп (769px+) */
+  @media (min-width: 769px) {
+    body {
+      font-size: 16px;
+    }
+  }
+
+  /* Очень маленькие экраны (до 320px) */
+  @media (max-width: 320px) {
+    body {
+      font-size: 13px;
+    }
+  }
+
+  /* Большие планшеты (769px - 1024px) */
+  @media (min-width: 769px) and (max-width: 1024px) {
+    body {
+      font-size: 15px;
+    }
+  }
 `;

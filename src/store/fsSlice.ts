@@ -397,11 +397,11 @@ export const getUser = createAsyncThunk(
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data && data.message) || 'Ошибка получения пользователя');
+        throw new Error((data && data.message) || '');
       }
       return await res.json();
     } catch (e: any) {
-      return rejectWithValue(e.message || 'Ошибка');
+      return rejectWithValue(e.message || '');
     }
   }
 );

@@ -21,6 +21,21 @@ const Bar = styled.div`
   background: ${({ theme }) => theme.colors.surface};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   box-shadow: 0 1px 3px rgba(0,0,0,.05);
+
+  /* Мобильные устройства */
+  @media (max-width: 768px) {
+    padding: 0 12px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* Очень маленькие экраны */
+  @media (max-width: 480px) {
+    height: 50px;
+    padding: 0 8px;
+    gap: 6px;
+    flex-wrap: nowrap;
+  }
 `;
 
 const Brand = styled.div`
@@ -63,6 +78,22 @@ const Search = styled.input`
     box-shadow: 0 0 0 3px rgba(90,90,90,.1); 
     background: ${({ theme }) => theme.colors.surface};
   }
+
+  /* Мобильные устройства */
+  @media (max-width: 768px) {
+    max-width: 200px;
+    height: 32px;
+    padding: 0 12px;
+    font-size: 14px;
+  }
+
+  /* Очень маленькие экраны */
+  @media (max-width: 480px) {
+    max-width: 150px;
+    height: 30px;
+    padding: 0 10px;
+    font-size: 13px;
+  }
 `;
 
 const Button = styled.button`
@@ -89,6 +120,22 @@ const Button = styled.button`
     opacity: 0.6;
     cursor: not-allowed;
     transform: none;
+  }
+
+  /* Мобильные устройства */
+  @media (max-width: 768px) {
+    height: 32px;
+    padding: 0 12px;
+    font-size: 13px;
+    gap: 4px;
+  }
+
+  /* Очень маленькие экраны */
+  @media (max-width: 480px) {
+    height: 30px;
+    padding: 0 10px;
+    font-size: 12px;
+    gap: 3px;
   }
 `;
 
@@ -182,6 +229,51 @@ const Actions = styled.div`
   align-items: center;
   gap: 12px;
   margin-left: auto;
+
+  /* Мобильные устройства */
+  @media (max-width: 768px) {
+    gap: 8px;
+  }
+
+  /* Очень маленькие экраны */
+  @media (max-width: 480px) {
+    gap: 6px;
+  }
+`;
+
+const MenuButton = styled.button`
+  display: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: ${({ theme }) => theme.colors.primary};
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: ${({ theme }) => theme.colors.primaryAccent};
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(90,90,90,.2);
+  }
+  
+  &:active {
+    transform: translateY(0);
+  }
+
+  /* Показываем только на мобильных */
+  @media (max-width: 768px) {
+    display: flex;
+  }
+
+  /* Очень маленькие экраны */
+  @media (max-width: 480px) {
+    width: 30px;
+    height: 30px;
+  }
 `;
 
 const Avatar = styled.button`
@@ -210,12 +302,26 @@ const Avatar = styled.button`
   }
 `;
 
-export function Header() {
+interface HeaderProps {
+  sidebarOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
+}
+
+export function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
   const dispatch: any = useDispatch();
   const search = useSelector((s: RootState) => s.fs.search);
   const selectedFolderId = useSelector((s: RootState) => s.fs.selectedFolderId);
   const { mode, toggle } = useThemeMode();
   const { auth } = useSelector((s: RootState) => s.fs);
+  
+  // Принудительно закрываем dropdown при logout
+  useEffect(() => {
+    if (!auth.isAuthenticated) {
+      setUserDropdownOpen(false);
+      // Принудительно обновляем состояние для перерисовки
+      setAuthOpen(false);
+    }
+  }, [auth.isAuthenticated]);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -274,20 +380,26 @@ export function Header() {
         </Toggle>
         
         <Actions>
+          <MenuButton onClick={() => setSidebarOpen(!sidebarOpen)} title="Меню">
+            ☰
+          </MenuButton>
+          
           <Avatar 
+            key={auth.isAuthenticated ? 'authenticated' : 'not-authenticated'}
             onClick={() => {
-              if (auth.user) {
+              if (auth.user && auth.isAuthenticated) {
                 setUserDropdownOpen(!userDropdownOpen);
               } else {
                 setAuthOpen(true);
               }
             }} 
-            title={auth.user ? `${auth.user.name} ${auth.user.second_name}` : 'Войти'}
+            title={auth.user && auth.isAuthenticated ? `${auth.user.name} ${auth.user.second_name}` : 'Войти'}
           >
-            {auth.user ? auth.user.name.charAt(0).toUpperCase() : '👤'}
+            {auth.user && auth.isAuthenticated ? auth.user.name.charAt(0).toUpperCase() : '👤'}
           </Avatar>
-          {auth.user && (
+          {auth.user && auth.isAuthenticated && (
             <UserDropdown 
+              key={`dropdown-${auth.isAuthenticated}`}
               isOpen={userDropdownOpen} 
               onClose={() => setUserDropdownOpen(false)} 
             />

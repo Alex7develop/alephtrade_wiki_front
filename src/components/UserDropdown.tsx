@@ -100,6 +100,13 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ isOpen, onClose }) =
     }
   }, [isOpen, auth.token, dispatch]);
 
+  // Автоматически закрываем dropdown при logout
+  useEffect(() => {
+    if (!auth.isAuthenticated && isOpen) {
+      onClose();
+    }
+  }, [auth.isAuthenticated, isOpen, onClose]);
+
   // Закрытие при клике вне dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -121,6 +128,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ isOpen, onClose }) =
     try {
       if (auth.token) {
         await dispatch(logout(auth.token));
+        // Принудительно закрываем dropdown после logout
         onClose();
       }
     } catch (error) {
@@ -129,7 +137,7 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ isOpen, onClose }) =
   };
 
   return (
-    <DropdownContainer ref={dropdownRef}>
+    <DropdownContainer ref={dropdownRef} key={auth.isAuthenticated ? 'authenticated' : 'not-authenticated'}>
       <DropdownMenu isOpen={isOpen}>
         {auth.loading ? (
           <LoadingIndicator>

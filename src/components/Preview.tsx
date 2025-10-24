@@ -21,6 +21,11 @@ const Wrap = styled.div`
   height: 100%;
   display: grid;
   grid-template-rows: auto 1fr;
+
+  /* Мобильные устройства */
+  @media (max-width: 768px) {
+    grid-template-rows: auto 1fr;
+  }
 `;
 
 const Toolbar = styled.div`
@@ -31,6 +36,18 @@ const Toolbar = styled.div`
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.surface};
   box-shadow: 0 1px 3px rgba(0,0,0,.05);
+
+  /* Мобильные устройства */
+  @media (max-width: 768px) {
+    padding: 12px 16px;
+    gap: 8px;
+  }
+
+  /* Очень маленькие экраны */
+  @media (max-width: 480px) {
+    padding: 10px 12px;
+    gap: 6px;
+  }
 `;
 
 const Title = styled.div`
