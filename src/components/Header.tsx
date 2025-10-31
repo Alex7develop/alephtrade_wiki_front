@@ -1,12 +1,13 @@
 import styled from 'styled-components';
 import { useDispatch, useSelector } from 'react-redux';
-import { setSearch, createFolderAPI, uploadFileAPI } from '@/store/fsSlice';
+import { setSearch, setSearchType, createFolderAPI, uploadFileAPI, searchAPI } from '@/store/fsSlice';
 import type { RootState } from '@/store/store';
+import type { SearchType } from '@/store/fsSlice';
 import logoSrc from '/icon/featherIcon.svg';
 import addIcon from '/icon/add_11891531.png';
 import uploadIcon from '/icon/file_4970405.png';
 import themeIcon from '/icon/icons8-день-и-ночь-50.png';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useThemeMode } from '@/styles/ThemeMode';
 import React, { useRef } from 'react';
 import { AuthModal } from './AuthModal';
@@ -59,6 +60,113 @@ const BrandTitle = styled.div`
   letter-spacing: -0.01em;
 `;
 
+const SearchContainer = styled.div`
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  
+  @media (max-width: 768px) {
+    gap: 8px;
+  }
+
+  @media (max-width: 480px) {
+    gap: 6px;
+  }
+`;
+
+const SearchToggleWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  
+  @media (max-width: 768px) {
+    gap: 6px;
+  }
+  
+  @media (max-width: 480px) {
+    gap: 4px;
+  }
+`;
+
+const SearchToggleSwitch = styled.button<{ $active: boolean }>`
+  position: relative;
+  width: 48px;
+  height: 28px;
+  border-radius: 14px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  background: ${({ $active, theme }) => 
+    $active ? theme.colors.primary : theme.colors.surfaceAlt};
+  cursor: pointer;
+  transition: all 0.3s ease;
+  outline: none;
+  padding: 0;
+  
+  &:hover {
+    border-color: ${({ theme }) => theme.colors.primary};
+    box-shadow: 0 0 0 2px rgba(90,90,90,0.1);
+  }
+  
+  &:focus {
+    border-color: ${({ theme }) => theme.colors.primary};
+    box-shadow: 0 0 0 3px rgba(90,90,90,0.15);
+  }
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: ${({ $active }) => $active ? '22px' : '2px'};
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid ${({ theme }) => theme.colors.border};
+    transition: left 0.3s ease;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  }
+  
+  @media (max-width: 768px) {
+    width: 42px;
+    height: 24px;
+    
+    &::after {
+      width: 18px;
+      height: 18px;
+      left: ${({ $active }) => $active ? '20px' : '2px'};
+    }
+  }
+  
+  @media (max-width: 480px) {
+    width: 38px;
+    height: 22px;
+    
+    &::after {
+      width: 16px;
+      height: 16px;
+      left: ${({ $active }) => $active ? '18px' : '2px'};
+    }
+  }
+`;
+
+const SearchToggleText = styled.span`
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.text};
+  font-weight: 500;
+  white-space: nowrap;
+  min-width: fit-content;
+  
+  @media (max-width: 768px) {
+    font-size: 11px;
+    display: none;
+  }
+  
+  @media (max-width: 480px) {
+    display: none;
+  }
+`;
+
 const Search = styled.input`
   flex: 1;
   height: 36px;
@@ -81,7 +189,6 @@ const Search = styled.input`
 
   /* Мобильные устройства */
   @media (max-width: 768px) {
-    max-width: 200px;
     height: 32px;
     padding: 0 12px;
     font-size: 14px;
@@ -89,7 +196,6 @@ const Search = styled.input`
 
   /* Очень маленькие экраны */
   @media (max-width: 480px) {
-    max-width: 150px;
     height: 30px;
     padding: 0 10px;
     font-size: 13px;
@@ -310,6 +416,7 @@ interface HeaderProps {
 export function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
   const dispatch: any = useDispatch();
   const search = useSelector((s: RootState) => s.fs.search);
+  const searchType = useSelector((s: RootState) => s.fs.searchType);
   const selectedFolderId = useSelector((s: RootState) => s.fs.selectedFolderId);
   const { mode, toggle } = useThemeMode();
   const { auth } = useSelector((s: RootState) => s.fs);
@@ -329,6 +436,39 @@ export function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounced функция для поиска (только для AI поиска)
+  const handleSearchChange = useCallback((value: string) => {
+    dispatch(setSearch(value));
+    
+    // Для AI поиска делаем debounced запрос к серверу
+    if (searchType === 'ai') {
+      // Очищаем предыдущий таймер
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      
+      // Если запрос пустой, сразу очищаем результаты
+      if (!value || value.trim().length === 0) {
+        return;
+      }
+      
+      // Устанавливаем новый таймер для debounce (500ms)
+      searchTimeoutRef.current = setTimeout(() => {
+        dispatch(searchAPI(value));
+      }, 500);
+    }
+  }, [dispatch, searchType]);
+
+  // Очищаем таймер при размонтировании
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const onChooseFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFile(e.target.files?.[0] ?? null);
@@ -357,11 +497,24 @@ export function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
         <Logo src={logoSrc} alt="logo" />
         <BrandTitle>Wiki</BrandTitle>
       </Brand>
-      <Search
-        value={search}
-        onChange={(e) => dispatch(setSearch(e.target.value))}
-        placeholder="Поиск по названию..."
-      />
+      <SearchContainer>
+        <Search
+          value={search}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          placeholder={searchType === 'local' ? 'Поиск по названию...' : 'AI поиск по контексту...'}
+        />
+        <SearchToggleWrapper>
+          <SearchToggleSwitch
+            $active={searchType === 'ai'}
+            onClick={() => dispatch(setSearchType(searchType === 'local' ? 'ai' : 'local'))}
+            title={searchType === 'local' ? 'Переключить на AI поиск' : 'Переключить на поиск по названию'}
+            aria-label={searchType === 'local' ? 'Переключить на AI поиск' : 'Переключить на поиск по названию'}
+          />
+          <SearchToggleText>
+            {searchType === 'local' ? 'Название' : 'AI'}
+          </SearchToggleText>
+        </SearchToggleWrapper>
+      </SearchContainer>
       <Button
         onClick={() => dispatch(createFolderAPI({ parentId: selectedFolderId }))}
       >

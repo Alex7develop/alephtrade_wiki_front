@@ -32,11 +32,17 @@ export interface AuthState {
   error: string | null;
 }
 
+export type SearchType = 'local' | 'ai';
+
 export interface FsState {
   root: FsNode;
   selectedFolderId: string; // текущая открытая папка
   selectedFileId: string | null; // выбранный файл для предпросмотра
   search: string;
+  searchType: SearchType; // тип поиска: локальный или AI
+  searchResults: FsNode[]; // результаты серверного поиска
+  searchLoading: boolean; // статус загрузки поиска
+  searchError: string | null; // ошибка поиска
   loading: boolean;
   error: string | null;
   auth: AuthState;
@@ -61,6 +67,10 @@ const initialState: FsState = {
   selectedFolderId: 'root',
   selectedFileId: null,
   search: '',
+  searchType: 'local',
+  searchResults: [],
+  searchLoading: false,
+  searchError: null,
   loading: false,
   error: null,
   auth: {
@@ -428,6 +438,37 @@ export const logout = createAsyncThunk(
   }
 );
 
+// Thunk: поиск через API POST /api/v2/search
+export const searchAPI = createAsyncThunk(
+  'fs/searchAPI',
+  async (query: string, { rejectWithValue }) => {
+    try {
+      if (!query || query.trim().length === 0) {
+        return [];
+      }
+      const res = await fetch(
+        'https://api.alephtrade.com/backend_wiki/api/v2/search',
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            search_string: query.trim(),
+            access: 0
+          })
+        }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data && data.message) || 'Ошибка поиска');
+      }
+      const data = (await res.json()) as ApiNode[];
+      return data.map(mapApiToFs);
+    } catch (e: any) {
+      return rejectWithValue(e.message || 'Ошибка поиска');
+    }
+  }
+);
+
 const fsSlice = createSlice({
   name: 'fs',
   initialState,
@@ -441,6 +482,17 @@ const fsSlice = createSlice({
     },
     setSearch(state, action: PayloadAction<string>) {
       state.search = action.payload;
+      // Очищаем результаты поиска при пустом запросе
+      if (!action.payload || action.payload.trim().length === 0) {
+        state.searchResults = [];
+        state.searchError = null;
+      }
+    },
+    setSearchType(state, action: PayloadAction<SearchType>) {
+      state.searchType = action.payload;
+      // Очищаем результаты при смене типа поиска
+      state.searchResults = [];
+      state.searchError = null;
     },
     createFolder(state, action: PayloadAction<{ parentId?: string; name?: string }>) {
       const parentId = action.payload.parentId ?? state.selectedFolderId;
@@ -532,11 +584,25 @@ const fsSlice = createSlice({
       .addCase(logout.rejected, (state, action) => {
         state.auth.loading = false;
         state.auth.error = action.payload as string;
+      })
+      // Search cases
+      .addCase(searchAPI.pending, (state) => {
+        state.searchLoading = true;
+        state.searchError = null;
+      })
+      .addCase(searchAPI.fulfilled, (state, action: PayloadAction<FsNode[]>) => {
+        state.searchLoading = false;
+        state.searchResults = action.payload;
+      })
+      .addCase(searchAPI.rejected, (state, action) => {
+        state.searchLoading = false;
+        state.searchError = action.payload as string;
+        state.searchResults = [];
       });
   }
 });
 
-export const { selectFolder, selectFile, setSearch, createFolder, renameItem } = fsSlice.actions;
+export const { selectFolder, selectFile, setSearch, setSearchType, createFolder, renameItem } = fsSlice.actions;
 export default fsSlice.reducer;
 
 

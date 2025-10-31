@@ -16,6 +16,7 @@ import {
   selectFile,
   selectFolder,
 } from '@/store/fsSlice';
+import { FilesList } from './FilesList';
 
 const Wrap = styled.div`
   height: 100%;
@@ -198,7 +199,7 @@ const MdWrap = styled.div`
 
 export function Preview() {
   const dispatch: any = useDispatch();
-  const { root, selectedFileId } = useSelector((s: RootState) => s.fs);
+  const { root, selectedFileId, search } = useSelector((s: RootState) => s.fs);
   const theme = useTheme();
 
   // Markdown preview state must be declared before any return to preserve hooks order
@@ -311,15 +312,14 @@ export function Preview() {
     }
   }, [theme, mdText, node]);
 
+  // Если есть активный поиск, но файл не выбран - показываем список результатов поиска
+  if (search && search.trim().length > 0 && !selectedFileId) {
+    return <FilesList />;
+  }
+
+  // Если ничего не выбрано (без активного поиска), показываем список файлов
   if (!node) {
-    return (
-      <Wrap>
-        <Toolbar>
-          <Title>Выберите элемент слева</Title>
-        </Toolbar>
-        <Body />
-      </Wrap>
-    );
+    return <FilesList />;
   }
 
   const isFolder = node.type === 'folder';

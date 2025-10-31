@@ -55,30 +55,26 @@ const Name = styled.span`
   flex: 1;
 `;
 
-function matches(query: string, name: string) {
-  return name.toLowerCase().includes(query.trim().toLowerCase());
-}
-
 function getFileIcon(mime?: string): JSX.Element {
   return <Icon src={fileIcon} alt="Файл" />;
 }
 
-function TreeNode({ node, level, expanded, toggle }: { node: any; level: number; expanded: Set<string>; toggle: (id: string) => void }) {
+function matches(query: string, name: string) {
+  return name.toLowerCase().includes(query.trim().toLowerCase());
+}
+
+function TreeNode({ node, level, expanded, toggle }: { 
+  node: any; 
+  level: number; 
+  expanded: Set<string>; 
+  toggle: (id: string) => void;
+}) {
   const dispatch: any = useDispatch();
   const selectedFolderId = useSelector((s: RootState) => s.fs.selectedFolderId);
   const selectedFileId = useSelector((s: RootState) => s.fs.selectedFileId);
-  const search = useSelector((s: RootState) => s.fs.search);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
 
   const isFolder = node.type === 'folder';
-  const visible = !search || matches(search, node.name);
-  if (!visible && isFolder) {
-    // показываем папку, если в ней есть совпадения
-    const anyChildVisible = (node.children ?? []).some((c: any) => matches(search, c.name));
-    if (!anyChildVisible) return null;
-  } else if (!visible) {
-    return null;
-  }
 
   const isExpanded = expanded.has(node.id);
   const isSelected = isFolder ? selectedFolderId === node.id : selectedFileId === node.id;
@@ -131,7 +127,13 @@ function TreeNode({ node, level, expanded, toggle }: { node: any; level: number;
       </ItemRow>
       {isFolder && isExpanded && (node.children ?? [])
         .map((c: any) => (
-          <TreeNode key={c.id} node={c} level={level + 1} expanded={expanded} toggle={toggle} />
+          <TreeNode 
+            key={c.id} 
+            node={c} 
+            level={level + 1} 
+            expanded={expanded} 
+            toggle={toggle}
+          />
         ))}
     </div>
   );
@@ -148,9 +150,17 @@ export function Sidebar() {
     });
   };
   useMemo(() => expanded, [expanded]);
+
+  // Sidebar всегда показывает полное дерево файлов для навигации
+  // Результаты поиска показываются только в основной области (FilesList)
   return (
     <TreeWrap>
-      <TreeNode node={root} level={0} expanded={expanded} toggle={toggle} />
+      <TreeNode 
+        node={root} 
+        level={0} 
+        expanded={expanded} 
+        toggle={toggle}
+      />
     </TreeWrap>
   );
 }

@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 import { useDispatch, useSelector } from 'react-redux';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import type { RootState } from '@/store/store';
 import { selectFile, moveNodeAPI } from '@/store/fsSlice';
 import { renameFileAPI } from '@/store/fsSlice';
@@ -70,16 +70,95 @@ function find(node: any, id: string): any | null {
   return null;
 }
 
+// Функция для рекурсивного поиска всех файлов в дереве
+function findAllFiles(node: any, query: string): any[] {
+  if (!node) return [];
+  
+  let results: any[] = [];
+  const searchQuery = query.trim().toLowerCase();
+  
+  if (!searchQuery) return [];
+  
+  // Если это файл, проверяем название
+  if (node.type === 'file') {
+    if (node.name && typeof node.name === 'string') {
+      const fileName = node.name.toLowerCase();
+      if (fileName.includes(searchQuery)) {
+        results.push(node);
+      }
+    }
+  }
+  
+  // Рекурсивно ищем в дочерних элементах (для папок и корневого узла)
+  // Корневой узел тоже может иметь children, поэтому обрабатываем его
+  if (node.children && Array.isArray(node.children)) {
+    for (const child of node.children) {
+      if (child) {
+        const childResults = findAllFiles(child, query);
+        results = results.concat(childResults);
+      }
+    }
+  }
+  
+  return results;
+}
+
 export function FilesList() {
   const dispatch: any = useDispatch();
-  const { root, selectedFolderId, selectedFileId, search } = useSelector((s: RootState) => s.fs);
+  const { root, selectedFolderId, selectedFileId, search, searchType, searchResults, searchLoading, searchError } = useSelector((s: RootState) => s.fs);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [dropTargetId, setDropTargetId] = useState<string | null>(null);
   const folder = find(root, selectedFolderId);
-  const files = (folder?.children ?? []).filter((c: any) => c.type === 'file');
-  const filtered = search ? files.filter((f: any) => f.name.toLowerCase().includes(search.toLowerCase())) : files;
+  
+  // Определяем отображаемые файлы в зависимости от типа поиска
+  // Используем useMemo для оптимизации и отслеживания изменений
+  const filtered = useMemo(() => {
+    let result: any[] = [];
+    
+    if (search && search.trim().length > 0) {
+      console.log('🔍 Поиск активен:', { search, searchType, rootExists: !!root, rootChildren: root?.children?.length });
+      
+      if (searchType === 'ai') {
+        // AI поиск - используем результаты серверного поиска (по всему дереву)
+        result = Array.isArray(searchResults) 
+          ? searchResults.filter((item: any) => item && item.type === 'file')
+          : [];
+        console.log('🤖 AI поиск результатов:', result.length);
+      } else {
+        // Локальный поиск - ищем по всему дереву файлов по названию
+        try {
+          if (root && root.children) {
+            result = findAllFiles(root, search);
+            console.log('📄 Локальный поиск результатов:', result.length, result.map((f: any) => f.name));
+            // Убеждаемся, что получили массив
+            if (!Array.isArray(result)) {
+              result = [];
+            }
+          } else {
+            console.warn('⚠️ Root или root.children не определены', { root, hasChildren: !!root?.children });
+            result = [];
+          }
+        } catch (error) {
+          console.error('❌ Ошибка поиска файлов:', error);
+          result = [];
+        }
+      }
+    } else {
+      // Обычный режим - показываем все файлы из текущей папки
+      result = (folder?.children ?? []).filter((c: any) => c && c.type === 'file');
+    }
+    
+    return result;
+  }, [search, searchType, root, searchResults, folder]);
+  
+  // Отладочный useEffect для отслеживания изменений
+  useEffect(() => {
+    if (search && search.trim().length > 0) {
+      console.log('📝 Поиск изменился:', { search, searchType, filteredCount: filtered.length });
+    }
+  }, [search, searchType, filtered.length]);
 
   function getTypeLabel(mime?: string): string {
     if (!mime) return 'file';
@@ -119,6 +198,27 @@ export function FilesList() {
 
   return (
     <Wrap>
+      {search && search.trim().length > 0 && searchType === 'ai' && searchLoading && (
+        <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
+          AI поиск...
+        </div>
+      )}
+      {searchError && search && search.trim().length > 0 && searchType === 'ai' && (
+        <div style={{ padding: '20px', textAlign: 'center', color: '#e74c3c' }}>
+          Ошибка поиска: {searchError}
+        </div>
+      )}
+      {filtered.length === 0 && search && search.trim().length > 0 && 
+       (searchType === 'local' || (!searchLoading && !searchError)) && (
+        <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
+          Ничего не найдено по запросу "{search}"
+          {searchType === 'local' && (
+            <div style={{ fontSize: '12px', marginTop: '8px', color: '#aaa' }}>
+              Поиск выполнен по всему дереву файлов
+            </div>
+          )}
+        </div>
+      )}
       {filtered.map((f: any) => (
         <Row
           key={f.id}
