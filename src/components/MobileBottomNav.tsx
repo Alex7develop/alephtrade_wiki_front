@@ -2,6 +2,9 @@ import styled from 'styled-components';
 import { useSelector } from 'react-redux';
 import type { RootState } from '@/store/store';
 import { useThemeMode } from '@/styles/ThemeMode';
+import homeIcon from '/icon/home.png';
+import cloudIcon from '/icon/cloud.png';
+import themeIcon from '/icon/theme.png';
 
 const Nav = styled.nav`
   display: none;
@@ -66,12 +69,15 @@ const NavButton = styled.button<{ $active?: boolean }>`
   }
 `;
 
-const Icon = styled.div`
-  font-size: 24px;
-  line-height: 1;
+const Icon = styled.img`
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  filter: ${({ theme }) => theme.mode === 'dark' ? 'brightness(0) invert(1)' : 'none'};
   
   @media (max-width: 480px) {
-    font-size: 22px;
+    width: 22px;
+    height: 22px;
   }
 `;
 
@@ -118,17 +124,17 @@ export function MobileBottomNav({
   return (
     <Nav>
       <NavButton $active={sidebarOpen} onClick={handleMenu} title="Меню с деревом файлов">
-        <Icon>🏠</Icon>
+        <Icon src={homeIcon} alt="Главная" />
         <Label>Меню</Label>
       </NavButton>
       
       <NavButton onClick={handleUpload} title="Загрузить файл">
-        <Icon>📁</Icon>
+        <Icon src={cloudIcon} alt="Загрузить файл" />
         <Label>Загрузить файл</Label>
       </NavButton>
       
       <NavButton onClick={handleTheme} title="Сменить тему">
-        <Icon>🌙</Icon>
+        <Icon src={themeIcon} alt="Сменить тему" />
         <Label>Тема</Label>
       </NavButton>
     </Nav>
