@@ -69,11 +69,12 @@ const NavButton = styled.button<{ $active?: boolean }>`
   }
 `;
 
-const Icon = styled.img`
+const Icon = styled.img<{ $active?: boolean }>`
   width: 24px;
   height: 24px;
   object-fit: contain;
-  filter: ${({ theme }) => theme.mode === 'dark' ? 'brightness(0) invert(1)' : 'none'};
+  opacity: ${({ $active }) => ($active ? 1 : 0.6)};
+  transition: opacity 0.2s ease;
   
   @media (max-width: 480px) {
     width: 22px;
@@ -124,7 +125,7 @@ export function MobileBottomNav({
   return (
     <Nav>
       <NavButton $active={sidebarOpen} onClick={handleMenu} title="Меню с деревом файлов">
-        <Icon src={homeIcon} alt="Главная" />
+        <Icon src={homeIcon} alt="Главная" $active={sidebarOpen} />
         <Label>Меню</Label>
       </NavButton>
       
