@@ -305,17 +305,29 @@ export const deleteFolderAPI = createAsyncThunk(
     { dispatch, rejectWithValue }
   ) => {
     try {
-      const res = await fetch(
-        `https://api.alephtrade.com/backend_wiki/api/v2/delete_folder/${uuid}`,
-        { method: 'DELETE' }
-      );
+      const url = `https://api.alephtrade.com/backend_wiki/api/v2/delete_folder/${uuid}`;
+      console.log('🗑️ Отправка запроса на удаление папки:', {
+        uuid,
+        url
+      });
+      
+      const res = await fetch(url, { method: 'DELETE' });
+      
+      const responseData = await res.json().catch(() => ({}));
+      console.log('📥 Ответ от API delete_folder:', {
+        status: res.status,
+        ok: res.ok,
+        response: responseData
+      });
+      
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error((data && data.message) || 'Ошибка удаления папки');
+        throw new Error((responseData && responseData.message) || 'Ошибка удаления папки');
       }
+      
       dispatch(fetchTree());
-      return await res.json();
+      return responseData;
     } catch (e: any) {
+      console.error('❌ Ошибка при удалении папки:', e);
       return rejectWithValue(e.message || 'Ошибка');
     }
   }
@@ -325,28 +337,76 @@ export const deleteFolderAPI = createAsyncThunk(
 export const moveNodeAPI = createAsyncThunk(
   'fs/moveNodeAPI',
   async (
-    { uuid, parent_uuid, name, access }: { uuid: string; parent_uuid?: string; name?: string; access?: number },
+    { uuid, parent_uuid, name, access, after_uuid, before_uuid, order }: { 
+      uuid: string; 
+      parent_uuid?: string; 
+      name?: string; 
+      access?: number;
+      after_uuid?: string; // UUID файла, после которого нужно вставить
+      before_uuid?: string; // UUID файла, перед которым нужно вставить
+      order?: number; // Позиция в списке
+    },
     { dispatch, rejectWithValue }
   ) => {
     try {
+      const body: any = {};
+      if (name) body.name = name;
+      if (typeof access === 'number') body.access = access;
+      if (parent_uuid) body.parent_uuid = parent_uuid;
+      // Параметры для изменения порядка файлов
+      // Пробуем разные варианты в зависимости от того, какие параметры переданы
+      if (typeof order === 'number') {
+        // Основной параметр - числовая позиция
+        body.order = order;
+        
+        // Альтернативные названия параметра
+        body.position = order;
+        body.sort_order = order;
+        body.position_index = order;
+      }
+      
+      // Если указан after_uuid - файл должен быть после этого файла
+      if (after_uuid) {
+        body.after_uuid = after_uuid;
+        body.insert_after = after_uuid;
+      }
+      
+      // Если указан before_uuid - файл должен быть перед этим файлом
+      if (before_uuid) {
+        body.before_uuid = before_uuid;
+        body.insert_before = before_uuid;
+      }
+      
+      console.log('📤 Отправка запроса на изменение порядка:', {
+        uuid,
+        body: JSON.stringify(body),
+        bodyObject: body,
+        url: `https://api.alephtrade.com/backend_wiki/api/v2/update_structure/${uuid}`
+      });
+      
       const res = await fetch(
         `https://api.alephtrade.com/backend_wiki/api/v2/update_structure/${uuid}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            ...(name ? { name } : {}),
-            ...(typeof access === 'number' ? { access } : {}),
-            ...(parent_uuid ? { parent_uuid } : {})
-          })
+          body: JSON.stringify(body)
         }
       );
+      
+      const responseData = await res.json().catch(() => ({}));
+      console.log('📥 Ответ от API update_structure:', {
+        status: res.status,
+        ok: res.ok,
+        response: responseData,
+        responseString: JSON.stringify(responseData)
+      });
+      
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error((data && data.message) || 'Ошибка перемещения');
+        throw new Error((responseData && responseData.message) || 'Ошибка перемещения');
       }
+      
       await dispatch(fetchTree());
-      return await res.json();
+      return responseData;
     } catch (e: any) {
       return rejectWithValue(e.message || 'Ошибка');
     }

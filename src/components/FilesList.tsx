@@ -70,6 +70,18 @@ function find(node: any, id: string): any | null {
   return null;
 }
 
+// Функция для поиска родительской папки файла
+function findParentFolder(node: any, targetId: string, parent: any = null): any | null {
+  if (node.id === targetId) return parent;
+  if (node.children) {
+    for (const child of node.children) {
+      const found = findParentFolder(child, targetId, node);
+      if (found !== null) return found;
+    }
+  }
+  return null;
+}
+
 // Функция для рекурсивного поиска всех файлов в дереве
 function findAllFiles(node: any, query: string): any[] {
   if (!node) return [];
@@ -229,19 +241,167 @@ export function FilesList() {
           }}
           draggable
           onDragStart={e => {
+            console.log('🚀 onDragStart вызван для файла:', f.id, f.name);
             setDraggingId(f.id);
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', f.id);
           }}
           onDragEnd={() => {
+            console.log('🏁 onDragEnd вызван');
             setDraggingId(null);
             setDropTargetId(null);
           }}
           onDragOver={e => {
             e.preventDefault();
+            e.stopPropagation();
+            // Показываем визуальную обратную связь при наведении на файл
+            if (draggingId && draggingId !== f.id) {
+              setDropTargetId(f.id);
+            }
+            // Логируем для отладки
+            if (draggingId && draggingId !== f.id) {
+              console.log('📍 onDragOver над файлом:', f.id, f.name, 'перетаскиваем:', draggingId);
+            }
+          }}
+          onDragLeave={() => {
+            // Убираем визуальную обратную связь только если покидаем элемент
+            setDropTargetId(null);
           }}
           onDrop={e => {
             e.preventDefault();
+            e.stopPropagation(); // Предотвращаем всплытие события
+            const draggedId = draggingId || e.dataTransfer.getData('text/plain');
+            
+            console.log('🎯 onDrop вызван на файле:', {
+              draggedId,
+              draggingId,
+              targetFileId: f.id,
+              folderId: folder?.id,
+              search,
+              filteredLength: filtered.length
+            });
+            
+            // Если перетаскиваем файл на другой файл
+            if (draggedId && draggedId !== f.id && folder?.id) {
+              console.log('✅ Условия выполнены, вызываем moveNodeAPI');
+              // Определяем индексы файлов в списке
+              const draggedIndex = filtered.findIndex((item: any) => item.id === draggedId);
+              const targetIndex = filtered.findIndex((item: any) => item.id === f.id);
+              
+              console.log('📍 Индексы файлов:', {
+                draggedIndex,
+                targetIndex,
+                draggedId,
+                targetId: f.id
+              });
+              
+              // Проверяем, находятся ли файлы в одной папке
+              // При обычном просмотре (без поиска) все файлы из текущей папки
+              const isSameFolder = !search || search.trim().length === 0;
+              
+              console.log('📁 Проверка условий:', {
+                isSameFolder,
+                draggedIndexValid: draggedIndex !== -1,
+                targetIndexValid: targetIndex !== -1,
+                folderId: folder.id,
+                search
+              });
+              
+              if (isSameFolder && draggedIndex !== -1 && targetIndex !== -1) {
+                // Файлы в одной папке - изменяем порядок
+                // Находим родительскую папку перетаскиваемого файла
+                const draggedFileParent = findParentFolder(root, draggedId);
+                const isAlreadyInFolder = draggedFileParent && draggedFileParent.id === folder.id;
+                
+                // Определяем позицию: если перетаскиваем вниз (draggedIndex > targetIndex),
+                // файл должен быть после целевого. Если вверх (draggedIndex < targetIndex) - перед целевым
+                const isMovingDown = draggedIndex > targetIndex;
+                
+                // Вычисляем новую позицию
+                let newOrder: number;
+                let beforeUuid: string | undefined;
+                let afterUuid: string | undefined;
+                
+                if (isMovingDown) {
+                  // Перетаскиваем вниз - файл должен быть после целевого
+                  newOrder = targetIndex + 1;
+                  afterUuid = f.id;
+                  // Находим следующий файл после целевого для более точной позиции
+                  if (targetIndex < filtered.length - 1) {
+                    const nextFile = filtered[targetIndex + 1];
+                    if (nextFile && nextFile.id !== draggedId) {
+                      beforeUuid = nextFile.id;
+                    }
+                  }
+                } else {
+                  // Перетаскиваем вверх - файл должен быть перед целевым
+                  newOrder = targetIndex;
+                  beforeUuid = f.id;
+                  // Находим предыдущий файл перед целевым для более точной позиции
+                  if (targetIndex > 0) {
+                    const prevFile = filtered[targetIndex - 1];
+                    if (prevFile && prevFile.id !== draggedId) {
+                      afterUuid = prevFile.id;
+                    }
+                  }
+                }
+                
+                console.log('🔄 Изменение порядка файлов:', {
+                  draggedId,
+                  targetId: f.id,
+                  draggedIndex,
+                  targetIndex,
+                  isMovingDown,
+                  newOrder,
+                  beforeUuid,
+                  afterUuid,
+                  folderId: folder.id,
+                  isAlreadyInFolder,
+                  draggedFileParent: draggedFileParent?.id
+                });
+                
+                // Для изменения порядка в одной папке передаем parent_uuid явно
+                // (даже если файл уже в этой папке) - это может помочь API понять намерение
+                const params: any = {
+                  uuid: draggedId,
+                  parent_uuid: folder.id, // Явно указываем родителя для изменения порядка
+                  order: newOrder, // Числовая позиция (индекс в списке, начиная с 0 или 1)
+                  after_uuid: afterUuid || undefined, // UUID файла после которого вставить
+                  before_uuid: beforeUuid || undefined // UUID файла перед которым вставить
+                };
+                
+                // Убираем undefined значения
+                Object.keys(params).forEach(key => {
+                  if (params[key] === undefined) {
+                    delete params[key];
+                  }
+                });
+                
+                console.log('📞 Вызываем moveNodeAPI с параметрами:', params);
+                dispatch(moveNodeAPI(params));
+              } else {
+                // Перемещаем файл в эту папку (между папками)
+                console.log('📞 Вызываем moveNodeAPI для перемещения между папками:', {
+                  uuid: draggedId,
+                  parent_uuid: folder.id
+                });
+                dispatch(moveNodeAPI({ 
+                  uuid: draggedId, 
+                  parent_uuid: folder.id 
+                }));
+              }
+            } else {
+              console.log('❌ Условия не выполнены:', {
+                draggedId,
+                fId: f.id,
+                folderId: folder?.id,
+                draggedIdExists: !!draggedId,
+                differentFiles: draggedId !== f.id,
+                folderExists: !!folder?.id
+              });
+            }
+            
+            setDraggingId(null);
             setDropTargetId(null);
           }}
           onClick={() => dispatch(selectFile(f.id))}
@@ -283,11 +443,18 @@ export function FilesList() {
       {/* Прокидываем drop на сам список — если drag file, drop на фон = file dvig в текущую папку (имеет смысл только при drag с другой вкладки/уровня) */}
       <div
         style={{height:8, width:'100%'}}
-        onDragOver={e => {e.preventDefault();}}
+        onDragOver={e => {
+          e.preventDefault();
+          console.log('📍 onDragOver на фоне списка');
+        }}
         onDrop={e => {
+          e.preventDefault();
+          console.log('🎯 onDrop на фоне списка');
           // Определим id drag-элемента
           const id = e.dataTransfer.getData('text/plain');
+          console.log('📦 Данные из dataTransfer:', id);
           if (id && id !== selectedFolderId && folder?.id) {
+            console.log('📞 Вызываем moveNodeAPI с фона списка');
             dispatch(moveNodeAPI({ uuid: id, parent_uuid: folder.id }));
           }
         }}

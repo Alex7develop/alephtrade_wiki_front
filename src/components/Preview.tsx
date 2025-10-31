@@ -199,7 +199,7 @@ const MdWrap = styled.div`
 
 export function Preview() {
   const dispatch: any = useDispatch();
-  const { root, selectedFileId, search } = useSelector((s: RootState) => s.fs);
+  const { root, selectedFileId, selectedFolderId, search } = useSelector((s: RootState) => s.fs);
   const theme = useTheme();
 
   // Markdown preview state must be declared before any return to preserve hooks order
@@ -218,7 +218,9 @@ export function Preview() {
     return null;
   }
 
-  const node = find(root, selectedFileId);
+  // Ищем узел по selectedFileId или selectedFolderId
+  // Приоритет у selectedFileId (если выбран файл)
+  const node = find(root, selectedFileId || selectedFolderId);
 
   // Load markdown content when applicable. The hook is always called.
   useEffect(() => {
@@ -535,8 +537,18 @@ export function Preview() {
   const deleteFolder = async () => {
     if (!node?.id || node.id === 'root') return;
     if (window.confirm('Удалить папку со всем содержимым?')) {
-      await dispatch(deleteFolderAPI({ uuid: node.id }));
-      dispatch(selectFolder('root'));
+      try {
+        const result = await dispatch(deleteFolderAPI({ uuid: node.id }));
+        if (deleteFolderAPI.fulfilled.match(result)) {
+          dispatch(selectFolder('root'));
+        } else {
+          const errorMessage = result.payload as string || 'Не удалось удалить папку';
+          alert(`Ошибка: ${errorMessage}`);
+        }
+      } catch (error: any) {
+        console.error('Ошибка при удалении папки:', error);
+        alert(`Ошибка: ${error.message || 'Не удалось удалить папку'}`);
+      }
     }
   };
 
