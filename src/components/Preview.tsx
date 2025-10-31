@@ -37,17 +37,22 @@ const Toolbar = styled.div`
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.surface};
   box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  position: sticky;
+  top: 0;
+  z-index: 10;
 
   /* Мобильные устройства */
   @media (max-width: 768px) {
     padding: 12px 16px;
     gap: 8px;
+    flex-wrap: wrap;
   }
 
   /* Очень маленькие экраны */
   @media (max-width: 480px) {
     padding: 10px 12px;
     gap: 6px;
+    flex-wrap: wrap;
   }
 `;
 
@@ -75,13 +80,31 @@ const ActionBtn = styled.button`
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  
   &:hover {
     background: ${({ theme }) => theme.colors.surface};
     border-color: ${({ theme }) => theme.colors.primary};
     transform: translateY(-1px);
   }
   &:active {
-    transform: translateY(0);
+    transform: scale(0.95);
+  }
+  
+  /* Мобильные устройства */
+  @media (max-width: 768px) {
+    min-height: 44px;
+    padding: 0 14px;
+    gap: 6px;
+    font-size: 13px;
+  }
+  
+  @media (max-width: 480px) {
+    min-height: 48px;
+    padding: 0 12px;
+    gap: 6px;
+    font-size: 12px;
   }
 `;
 
@@ -95,7 +118,23 @@ const Body = styled.div`
   color: ${({ theme }) => theme.colors.text};
   height: 100%;
   overflow: auto;
+  overflow-x: hidden;
   background: ${({ theme }) => theme.colors.surface};
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  
+  /* Мобильные устройства */
+  @media (max-width: 768px) {
+    padding: 16px;
+    padding-bottom: 80px; /* Место для bottom navigation */
+  }
+  
+  @media (max-width: 480px) {
+    padding: 12px;
+    padding-bottom: 70px;
+  }
 `;
 
 const PdfViewer = styled.iframe`
@@ -314,6 +353,21 @@ export function Preview() {
     }
   }, [theme, mdText, node]);
 
+  // Определяем, находимся ли мы на мобильном устройстве
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' && window.innerWidth <= 768
+  );
+  
+  // Отслеживаем изменение размера окна
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
   // Если есть активный поиск, но файл не выбран - показываем список результатов поиска
   if (search && search.trim().length > 0 && !selectedFileId) {
     return <FilesList />;
@@ -325,6 +379,11 @@ export function Preview() {
   }
 
   const isFolder = node.type === 'folder';
+  
+  // На мобильных устройствах, если выбрана папка (не файл), показываем список файлов
+  if (isMobile && isFolder && !selectedFileId) {
+    return <FilesList />;
+  }
   const isPdf = node.mime === 'application/pdf';
   const isMd =
     node.mime === 'text/markdown' || node.url?.toLowerCase().endsWith('.md');

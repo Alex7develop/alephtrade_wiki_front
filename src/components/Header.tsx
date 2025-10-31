@@ -22,12 +22,17 @@ const Bar = styled.div`
   background: ${({ theme }) => theme.colors.surface};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  flex-shrink: 0;
 
   /* Мобильные устройства */
   @media (max-width: 768px) {
     padding: 0 12px;
     gap: 8px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    min-width: 0;
   }
 
   /* Очень маленькие экраны */
@@ -44,6 +49,13 @@ const Brand = styled.div`
   align-items: center;
   gap: 12px;
   margin-right: 16px;
+  flex-shrink: 0;
+  min-width: 0;
+  
+  @media (max-width: 480px) {
+    gap: 8px;
+    margin-right: 8px;
+  }
 `;
 
 const Logo = styled.img`
@@ -58,6 +70,12 @@ const BrandTitle = styled.div`
   font-size: 20px;
   color: ${({ theme }) => theme.colors.text};
   letter-spacing: -0.01em;
+  white-space: nowrap;
+  
+  @media (max-width: 480px) {
+    font-size: 18px;
+    display: none; /* Скрываем на очень маленьких экранах */
+  }
 `;
 
 const SearchContainer = styled.div`
@@ -65,13 +83,17 @@ const SearchContainer = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
+  min-width: 0;
+  overflow: hidden;
   
   @media (max-width: 768px) {
     gap: 8px;
+    min-width: 0;
   }
 
   @media (max-width: 480px) {
     gap: 6px;
+    min-width: 0;
   }
 `;
 
@@ -178,6 +200,9 @@ const Search = styled.input`
   font-size: 15px;
   outline: none;
   transition: all 0.2s ease;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
   &::placeholder {
     color: ${({ theme }) => theme.colors.textMuted};
   }
@@ -192,6 +217,7 @@ const Search = styled.input`
     height: 32px;
     padding: 0 12px;
     font-size: 14px;
+    min-width: 0;
   }
 
   /* Очень маленькие экраны */
@@ -199,6 +225,7 @@ const Search = styled.input`
     height: 30px;
     padding: 0 10px;
     font-size: 13px;
+    min-width: 0;
   }
 `;
 
@@ -216,32 +243,31 @@ const Button = styled.button`
   align-items: center;
   gap: 8px;
   transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  
+  .button-text {
+    white-space: nowrap;
+  }
+  
   &:hover { 
     background: ${({ theme }) => theme.colors.primaryAccent};
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(90,90,90,.2);
   }
-  &:active { transform: translateY(0); }
+  &:active { 
+    transform: translateY(0) scale(0.98);
+  }
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
     transform: none;
   }
 
-  /* Мобильные устройства */
+  /* Скрываем на мобильных */
   @media (max-width: 768px) {
-    height: 32px;
-    padding: 0 12px;
-    font-size: 13px;
-    gap: 4px;
-  }
-
-  /* Очень маленькие экраны */
-  @media (max-width: 480px) {
-    height: 30px;
-    padding: 0 10px;
-    font-size: 12px;
-    gap: 3px;
+    &.desktop-only {
+      display: none;
+    }
   }
 `;
 
@@ -265,13 +291,22 @@ const Toggle = styled.button`
   align-items: center;
   gap: 6px;
   transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  
   &:hover {
     background: ${({ theme }) => theme.colors.primaryAccent};
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(90,90,90,.2);
   }
   &:active {
-    transform: translateY(0);
+    transform: scale(0.95);
+  }
+  
+  /* Скрываем на мобильных */
+  @media (max-width: 768px) {
+    &.desktop-only {
+      display: none;
+    }
   }
 `;
 
@@ -335,15 +370,19 @@ const Actions = styled.div`
   align-items: center;
   gap: 12px;
   margin-left: auto;
+  flex-shrink: 0;
+  min-width: 0;
 
   /* Мобильные устройства */
   @media (max-width: 768px) {
     gap: 8px;
+    flex-shrink: 0;
   }
 
   /* Очень маленькие экраны */
   @media (max-width: 480px) {
     gap: 6px;
+    flex-shrink: 0;
   }
 `;
 
@@ -411,15 +450,35 @@ const Avatar = styled.button`
 interface HeaderProps {
   sidebarOpen: boolean;
   setSidebarOpen: (open: boolean) => void;
+  uploadOpen?: boolean;
+  setUploadOpen?: (open: boolean) => void;
+  authOpen?: boolean;
+  setAuthOpen?: (open: boolean) => void;
 }
 
-export function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
+export function Header({ 
+  sidebarOpen, 
+  setSidebarOpen,
+  uploadOpen: externalUploadOpen,
+  setUploadOpen: externalSetUploadOpen,
+  authOpen: externalAuthOpen,
+  setAuthOpen: externalSetAuthOpen
+}: HeaderProps) {
   const dispatch: any = useDispatch();
   const search = useSelector((s: RootState) => s.fs.search);
   const searchType = useSelector((s: RootState) => s.fs.searchType);
   const selectedFolderId = useSelector((s: RootState) => s.fs.selectedFolderId);
   const { mode, toggle } = useThemeMode();
   const { auth } = useSelector((s: RootState) => s.fs);
+  
+  // Используем внешние состояния если они переданы, иначе внутренние
+  const [internalUploadOpen, setInternalUploadOpen] = useState(false);
+  const [internalAuthOpen, setInternalAuthOpen] = useState(false);
+  
+  const uploadOpen = externalUploadOpen !== undefined ? externalUploadOpen : internalUploadOpen;
+  const setUploadOpen = externalSetUploadOpen || setInternalUploadOpen;
+  const authOpen = externalAuthOpen !== undefined ? externalAuthOpen : internalAuthOpen;
+  const setAuthOpen = externalSetAuthOpen || setInternalAuthOpen;
   
   // Принудительно закрываем dropdown при logout
   useEffect(() => {
@@ -428,15 +487,14 @@ export function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
       // Принудительно обновляем состояние для перерисовки
       setAuthOpen(false);
     }
-  }, [auth.isAuthenticated]);
-  const [uploadOpen, setUploadOpen] = useState(false);
-  const [authOpen, setAuthOpen] = useState(false);
+  }, [auth.isAuthenticated, setAuthOpen]);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const avatarRef = useRef<HTMLButtonElement | null>(null);
 
   // Debounced функция для поиска (только для AI поиска)
   const handleSearchChange = useCallback((value: string) => {
@@ -517,17 +575,19 @@ export function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
       </SearchContainer>
       <Button
         onClick={() => dispatch(createFolderAPI({ parentId: selectedFolderId }))}
+        className="desktop-only"
       >
         <Icon src={addIcon} alt="Создать папку" />
-        Создать папку
+        <span className="button-text">Создать папку</span>
       </Button>
       <Button
         onClick={() => setUploadOpen(true)}
+        className="desktop-only"
       >
         <Icon src={uploadIcon} alt="Загрузить файл" />
-        Загрузить файл
+        <span className="button-text">Загрузить файл</span>
       </Button>
-        <Toggle onClick={toggle} title="Сменить тему">
+        <Toggle onClick={toggle} title="Сменить тему" className="desktop-only">
           <Icon src={themeIcon} alt="Тема" />
           {mode === 'light' ? '' : ''}
         </Toggle>
@@ -538,6 +598,9 @@ export function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
           </MenuButton>
           
           <Avatar 
+            ref={(el) => {
+              if (el) avatarRef.current = el;
+            }}
             key={auth.isAuthenticated ? 'authenticated' : 'not-authenticated'}
             onClick={() => {
               if (auth.user && auth.isAuthenticated) {
@@ -554,7 +617,8 @@ export function Header({ sidebarOpen, setSidebarOpen }: HeaderProps) {
             <UserDropdown 
               key={`dropdown-${auth.isAuthenticated}`}
               isOpen={userDropdownOpen} 
-              onClose={() => setUserDropdownOpen(false)} 
+              onClose={() => setUserDropdownOpen(false)}
+              anchorElement={avatarRef.current}
             />
           )}
         </Actions>

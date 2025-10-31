@@ -11,7 +11,16 @@ const ModalBg = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 2000;
+  backdrop-filter: blur(4px);
+  
+  /* Мобильные устройства */
+  @media (max-width: 768px) {
+    z-index: 2000;
+    padding: 16px;
+    align-items: flex-start;
+    padding-top: 20%;
+  }
 `;
 
 const Modal = styled.div`
@@ -21,6 +30,21 @@ const Modal = styled.div`
   width: 400px;
   max-width: 90vw;
   box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  position: relative;
+  z-index: 2001;
+  
+  /* Мобильные устройства */
+  @media (max-width: 768px) {
+    width: 100%;
+    max-width: calc(100vw - 32px);
+    padding: 20px;
+    border-radius: 16px;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 16px;
+    max-width: calc(100vw - 16px);
+  }
 `;
 
 const Title = styled.h2`

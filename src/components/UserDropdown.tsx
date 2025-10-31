@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import styled from 'styled-components';
 import { RootState } from '../store/store';
@@ -11,21 +12,42 @@ const DropdownContainer = styled.div`
 
 const DropdownMenu = styled.div.withConfig({
   shouldForwardProp: (prop) => prop !== 'isOpen',
-})<{ isOpen: boolean }>`
-  position: absolute;
-  top: 100%;
-  right: 0;
+})<{ isOpen: boolean; $top?: number; $right?: number }>`
+  position: fixed;
+  top: ${({ $top }) => $top !== undefined ? `${$top}px` : 'auto'};
+  right: ${({ $right }) => $right !== undefined ? `${$right}px` : '8px'};
   margin-top: 8px;
   background: ${({ theme }) => theme.colors.surface};
   border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0,0,0,.15);
+  box-shadow: 0 8px 32px rgba(0,0,0,.2);
   min-width: 280px;
-  z-index: 1000;
+  z-index: 2000;
   opacity: ${({ isOpen }) => isOpen ? 1 : 0};
   visibility: ${({ isOpen }) => isOpen ? 'visible' : 'hidden'};
   transform: ${({ isOpen }) => isOpen ? 'translateY(0)' : 'translateY(-8px)'};
   transition: all 0.2s ease;
+  pointer-events: ${({ isOpen }) => isOpen ? 'auto' : 'none'};
+  
+  /* Десктоп - позиционирование относительно кнопки */
+  @media (min-width: 769px) {
+    position: fixed;
+  }
+  
+  /* Мобильные устройства */
+  @media (max-width: 768px) {
+    position: fixed;
+    top: auto;
+    bottom: calc(64px + 8px); /* Выше bottom navigation */
+    right: 8px;
+    margin-top: 0;
+  }
+  
+  @media (max-width: 480px) {
+    bottom: calc(60px + 8px);
+    min-width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+  }
 `;
 
 const UserInfo = styled.div`
@@ -86,12 +108,28 @@ const LogoutIcon = styled.span`
 interface UserDropdownProps {
   isOpen: boolean;
   onClose: () => void;
+  anchorElement?: HTMLElement | null;
 }
 
-export const UserDropdown: React.FC<UserDropdownProps> = ({ isOpen, onClose }) => {
+export const UserDropdown: React.FC<UserDropdownProps> = ({ isOpen, onClose, anchorElement }) => {
   const dispatch = useDispatch<any>();
   const { auth } = useSelector((state: RootState) => state.fs);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [position, setPosition] = useState<{ top: number; right: number } | null>(null);
+
+  // Вычисляем позицию dropdown относительно кнопки аватара
+  useEffect(() => {
+    if (isOpen) {
+      const element = anchorElement;
+      if (element) {
+        const rect = element.getBoundingClientRect();
+        setPosition({
+          top: rect.bottom + 8,
+          right: window.innerWidth - rect.right
+        });
+      }
+    }
+  }, [isOpen, anchorElement]);
 
   // Загружаем актуальные данные пользователя при открытии dropdown
   useEffect(() => {
@@ -110,19 +148,38 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ isOpen, onClose }) =
   // Закрытие при клике вне dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node) &&
+          anchorElement && !anchorElement.contains(event.target as Node)) {
         onClose();
       }
     };
 
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
+      // Обновляем позицию при скролле или изменении размера окна
+      const updatePosition = () => {
+        if (anchorElement) {
+          const rect = anchorElement.getBoundingClientRect();
+          setPosition({
+            top: rect.bottom + 8,
+            right: window.innerWidth - rect.right
+          });
+        }
+      };
+      window.addEventListener('scroll', updatePosition, true);
+      window.addEventListener('resize', updatePosition);
+      
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+        window.removeEventListener('scroll', updatePosition, true);
+        window.removeEventListener('resize', updatePosition);
+      };
     }
 
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, anchorElement]);
 
   const handleLogout = async () => {
     try {
@@ -136,31 +193,41 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ isOpen, onClose }) =
     }
   };
 
-  return (
-    <DropdownContainer ref={dropdownRef} key={auth.isAuthenticated ? 'authenticated' : 'not-authenticated'}>
-      <DropdownMenu isOpen={isOpen}>
-        {auth.loading ? (
-          <LoadingIndicator>
-            Загрузка данных...
-          </LoadingIndicator>
-        ) : (
-          <>
-            <UserInfo>
-              <UserName>
-                {`${auth.user?.name || ''} ${auth.user?.second_name || ''} ${auth.user?.patronymic || ''}`}
-              </UserName>
-              <UserEmail>{auth.user?.email || ''}</UserEmail>
-            </UserInfo>
-            
-            <MenuActions>
-              <MenuItem onClick={handleLogout}>
-                <LogoutIcon></LogoutIcon>
-                Выйти
-              </MenuItem>
-            </MenuActions>
-          </>
-        )}
-      </DropdownMenu>
-    </DropdownContainer>
+  if (!isOpen) return null;
+
+  const dropdownContent = (
+    <DropdownMenu 
+      ref={dropdownRef}
+      isOpen={isOpen}
+      $top={position?.top}
+      $right={position?.right}
+    >
+      {auth.loading ? (
+        <LoadingIndicator>
+          Загрузка данных...
+        </LoadingIndicator>
+      ) : (
+        <>
+          <UserInfo>
+            <UserName>
+              {`${auth.user?.name || ''} ${auth.user?.second_name || ''} ${auth.user?.patronymic || ''}`}
+            </UserName>
+            <UserEmail>{auth.user?.email || ''}</UserEmail>
+          </UserInfo>
+          
+          <MenuActions>
+            <MenuItem onClick={handleLogout}>
+              <LogoutIcon></LogoutIcon>
+              Выйти
+            </MenuItem>
+          </MenuActions>
+        </>
+      )}
+    </DropdownMenu>
   );
+
+  // Используем Portal для рендеринга в body на десктопе, чтобы обойти проблемы с z-index
+  return typeof document !== 'undefined' 
+    ? createPortal(dropdownContent, document.body)
+    : dropdownContent;
 };

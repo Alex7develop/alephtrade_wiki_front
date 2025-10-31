@@ -10,14 +10,31 @@ const TreeWrap = styled.div`
   background: ${({ theme }) => theme.colors.surface};
   border-right: 1px solid ${({ theme }) => theme.colors.border};
   height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  
+  /* Мобильные устройства */
+  @media (max-width: 768px) {
+    padding: 12px;
+    width: 100%;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 8px;
+  }
 `;
 
 const ItemRow = styled.div<{ selected?: boolean }>`
   display: flex;
   align-items: center;
   gap: 10px;
-  height: 36px;
-  padding: 0 12px;
+  min-height: 36px;
+  height: auto;
+  padding: 8px 12px;
   border-radius: ${({ theme }) => theme.radius.sm};
   cursor: pointer;
   color: ${({ theme }) => theme.colors.text};
@@ -26,11 +43,31 @@ const ItemRow = styled.div<{ selected?: boolean }>`
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
-  margin-bottom: 2px;
+  margin-bottom: 4px;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
   
   &:hover { 
     background: ${({ selected, theme }) => (selected ? theme.colors.primary : theme.colors.surfaceAlt)};
     transform: translateX(2px);
+  }
+  
+  &:active {
+    transform: scale(0.98);
+  }
+  
+  /* Мобильные устройства - увеличенные touch targets */
+  @media (max-width: 768px) {
+    min-height: 48px;
+    padding: 12px;
+    margin-bottom: 6px;
+    border-radius: ${({ theme }) => theme.radius.md};
+  }
+  
+  @media (max-width: 480px) {
+    min-height: 52px;
+    padding: 14px 12px;
+    margin-bottom: 8px;
   }
 `;
 

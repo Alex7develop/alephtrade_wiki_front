@@ -123,10 +123,32 @@ declare module 'styled-components' {
 
 export const GlobalStyle = createGlobalStyle`
   :root { color-scheme: ${({ theme }) => (theme.mode === 'light' ? 'light' : 'dark')}; }
-  * { box-sizing: border-box; }
-  html, body, #root { height: 100%; }
+  * { 
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  html {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    position: fixed;
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+  }
+  
   body {
     margin: 0;
+    padding: 0;
+    height: 100%;
+    width: 100%;
+    max-width: 100vw;
+    overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
     background: ${({ theme }) => theme.colors.background};
     color: ${({ theme }) => theme.colors.text};
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
@@ -136,6 +158,16 @@ export const GlobalStyle = createGlobalStyle`
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     letter-spacing: -0.01em;
+    overscroll-behavior: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  #root {
+    height: 100%;
+    width: 100%;
+    max-width: 100vw;
+    overflow: hidden;
+    position: relative;
   }
   
   /* Профессиональные скроллбары */
@@ -196,6 +228,14 @@ export const GlobalStyle = createGlobalStyle`
     * {
       scrollbar-width: thin;
       scrollbar-color: ${({ theme }) => theme.colors.border} transparent;
+    }
+  }
+  
+  /* Безопасные зоны для iPhone */
+  @supports (padding: max(0px)) {
+    body {
+      padding-left: env(safe-area-inset-left);
+      padding-right: env(safe-area-inset-right);
     }
   }
 

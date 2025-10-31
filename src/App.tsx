@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { Header } from '@/components/Header';
 import { Sidebar } from '@/components/Sidebar';
 import { Preview } from '@/components/Preview';
+import { MobileBottomNav } from '@/components/MobileBottomNav';
 
 const Layout = styled.div`
   display: grid;
@@ -15,6 +16,14 @@ const Layout = styled.div`
     'header header'
     'sidebar content';
   height: 100vh;
+  width: 100vw;
+  max-width: 100vw;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
 
   /* Мобильные устройства */
   @media (max-width: 768px) {
@@ -23,6 +32,8 @@ const Layout = styled.div`
     grid-template-areas:
       'header'
       'content';
+    min-width: 0;
+    width: 100%;
   }
 
   /* Очень маленькие экраны */
@@ -36,6 +47,11 @@ const HeaderArea = styled.header`
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.surface};
   box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  position: relative;
+  z-index: 100;
 `;
 
 const SidebarArea = styled.aside<{ $sidebarOpen: boolean }>`
@@ -69,8 +85,22 @@ const ContentArea = styled.main`
   grid-area: content;
   background: ${({ theme }) => theme.colors.surface};
   overflow: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  height: 100%;
+  
+  /* Мобильные устройства */
+  @media (max-width: 768px) {
+    padding-bottom: 64px; /* Место для bottom navigation */
+  }
+  
+  @media (max-width: 480px) {
+    padding-bottom: 60px;
+  }
 `;
 
 const MobileOverlay = styled.div<{ $sidebarOpen: boolean }>`
@@ -106,10 +136,23 @@ export default function App() {
     }
   }, [auth.token, auth.user, dispatch]);
 
+  // Функция для открытия модального окна загрузки
+  // Передадим эту функцию через ref или создадим контекст
+  // Пока что создадим простой способ через событие или состояние
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   return (
     <Layout>
       <HeaderArea>
-        <Header sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+        <Header 
+          sidebarOpen={sidebarOpen} 
+          setSidebarOpen={setSidebarOpen}
+          uploadOpen={showUploadModal}
+          setUploadOpen={setShowUploadModal}
+          authOpen={showAuthModal}
+          setAuthOpen={setShowAuthModal}
+        />
       </HeaderArea>
       <MobileOverlay $sidebarOpen={sidebarOpen} onClick={() => setSidebarOpen(false)} />
       <SidebarArea $sidebarOpen={sidebarOpen}>
@@ -124,6 +167,11 @@ export default function App() {
           <Preview />
         )}
       </ContentArea>
+      <MobileBottomNav 
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        onUploadClick={() => setShowUploadModal(true)}
+      />
     </Layout>
   );
 }

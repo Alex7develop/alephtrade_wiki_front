@@ -2,7 +2,7 @@ import styled from 'styled-components';
 import { useDispatch, useSelector } from 'react-redux';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import type { RootState } from '@/store/store';
-import { selectFile, moveNodeAPI } from '@/store/fsSlice';
+import { selectFile, selectFolder, moveNodeAPI } from '@/store/fsSlice';
 import { renameFileAPI } from '@/store/fsSlice';
 
 const Wrap = styled.div`
@@ -10,28 +10,84 @@ const Wrap = styled.div`
   background: ${({ theme }) => theme.colors.surface};
   height: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  
+  /* Мобильные устройства */
+  @media (max-width: 768px) {
+    padding: 12px;
+    padding-bottom: 80px; /* Место для bottom navigation */
+  }
+  
+  @media (max-width: 480px) {
+    padding: 8px;
+    padding-bottom: 70px;
+  }
 `;
 
-const Row = styled.div<{ selected?: boolean }>`
+const Row = styled.div<{ selected?: boolean; $dragging?: boolean }>`
   display: grid;
   grid-template-columns: 1fr 100px;
   align-items: center;
-  height: 48px;
-  padding: 0 16px;
+  min-height: 48px;
+  height: auto;
+  padding: 12px 16px;
   border-radius: ${({ theme }) => theme.radius.sm};
   cursor: pointer;
-  background: ${({ selected, theme }) => (selected ? theme.colors.primary : 'transparent')};
+  background: ${({ selected, theme }) => (selected ? theme.colors.primary : theme.colors.surface)};
   color: ${({ selected, theme }) => (selected ? '#fff' : theme.colors.text)};
   font-size: 14px;
   font-weight: 500;
   transition: all 0.2s ease;
-  margin-bottom: 4px;
-  border: 1px solid transparent;
+  margin-bottom: 8px;
+  border: 1px solid ${({ theme, selected }) => selected ? 'transparent' : theme.colors.border};
+  box-shadow: ${({ $dragging, selected, theme }) => 
+    $dragging ? `0 4px 12px rgba(0,0,0,0.15)` : 
+    selected ? `0 2px 8px rgba(0,0,0,0.1)` : 
+    `0 1px 3px rgba(0,0,0,0.05)`};
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   
   &:hover { 
     background: ${({ selected, theme }) => (selected ? theme.colors.primary : theme.colors.surfaceAlt)};
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0,0,0,.1);
+    box-shadow: ${({ selected, theme }) => selected ? 
+      `0 2px 8px rgba(0,0,0,0.15)` : 
+      `0 4px 12px rgba(0,0,0,0.1)`};
+  }
+  
+  &:active {
+    transform: scale(0.98);
+    box-shadow: ${({ theme }) => `0 2px 4px rgba(0,0,0,0.1)`};
+  }
+  
+  /* Мобильные устройства - увеличенные touch targets */
+  @media (max-width: 768px) {
+    min-height: 56px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+    border-radius: ${({ theme }) => theme.radius.md};
+    box-shadow: ${({ $dragging, selected, theme }) => 
+      $dragging ? `0 4px 16px rgba(0,0,0,0.2)` : 
+      selected ? `0 2px 12px rgba(0,0,0,0.15)` : 
+      `0 2px 8px rgba(0,0,0,0.08)`};
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  @media (max-width: 480px) {
+    min-height: 60px;
+    padding: 16px;
+    margin-bottom: 12px;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    width: 100%;
+    max-width: 100%;
   }
 `;
 
@@ -42,6 +98,8 @@ const Title = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+  flex: 1;
 `;
 
 const Type = styled.div`
@@ -158,8 +216,8 @@ export function FilesList() {
         }
       }
     } else {
-      // Обычный режим - показываем все файлы из текущей папки
-      result = (folder?.children ?? []).filter((c: any) => c && c.type === 'file');
+      // Обычный режим - показываем все элементы (папки и файлы) из текущей папки
+      result = (folder?.children ?? []).filter((c: any) => c && (c.type === 'file' || c.type === 'folder'));
     }
     
     return result;
@@ -190,6 +248,13 @@ export function FilesList() {
     if (mime.startsWith('image/')) return '🖼️';
     if (mime.endsWith('wordprocessingml.document')) return '📄';
     return '📄';
+  }
+  
+  function getItemIcon(item: any): string {
+    if (item.type === 'folder') {
+      return '📁';
+    }
+    return getFileIcon(item.mime);
   }
 
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -234,7 +299,8 @@ export function FilesList() {
       {filtered.map((f: any) => (
         <Row
           key={f.id}
-          selected={selectedFileId === f.id}
+          selected={f.type === 'folder' ? selectedFolderId === f.id : selectedFileId === f.id}
+          $dragging={draggingId === f.id}
           style={{
             boxShadow: draggingId === f.id ? '0 0 8px #3178ff' :
               dropTargetId === f.id ? 'inset 0 0 0 2px #31a8ff' : undefined
@@ -404,10 +470,19 @@ export function FilesList() {
             setDraggingId(null);
             setDropTargetId(null);
           }}
-          onClick={() => dispatch(selectFile(f.id))}
+          onClick={() => {
+            if (f.type === 'folder') {
+              dispatch(selectFolder(f.id));
+              // Не сбрасываем selectedFileId - оставляем как есть
+            } else {
+              dispatch(selectFile(f.id));
+            }
+          }}
           onDoubleClick={() => {
-            setEditingId(f.id);
-            setEditingValue(f.name);
+            if (f.type === 'file') {
+              setEditingId(f.id);
+              setEditingValue(f.name);
+            }
           }}
         >
           {editingId === f.id ? (
@@ -433,11 +508,11 @@ export function FilesList() {
             />
           ) : (
             <Title>
-              <span>{getFileIcon(f.mime)}</span>
+              <span>{getItemIcon(f)}</span>
               {f.name}
             </Title>
           )}
-          <Type>{getTypeLabel(f.mime)}</Type>
+          <Type>{f.type === 'folder' ? 'папка' : getTypeLabel(f.mime)}</Type>
         </Row>
       ))}
       {/* Прокидываем drop на сам список — если drag file, drop на фон = file dvig в текущую папку (имеет смысл только при drag с другой вкладки/уровня) */}
