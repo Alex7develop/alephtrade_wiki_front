@@ -221,10 +221,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   };
 
   const handleClose = () => {
-    setStep('phone');
-    setPhone('');
-    setCode('');
-    onClose();
+    // Не позволяем закрыть модальное окно, если пользователь не авторизован
+    if (auth.isAuthenticated) {
+      setStep('phone');
+      setPhone('');
+      setCode('');
+      onClose();
+    }
   };
 
   if (!isOpen) return null;

@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 import { useDispatch, useSelector } from 'react-redux';
-import { setSearch, setSearchType, createFolderAPI, uploadFileAPI, searchAPI } from '@/store/fsSlice';
+import { setSearch, setSearchType, uploadFileAPI, searchAPI } from '@/store/fsSlice';
 import type { RootState } from '@/store/store';
 import type { SearchType } from '@/store/fsSlice';
 import logoSrc from '/icon/featherIcon.svg';
@@ -12,6 +12,7 @@ import { useThemeMode } from '@/styles/ThemeMode';
 import React, { useRef } from 'react';
 import { AuthModal } from './AuthModal';
 import { UserDropdown } from './UserDropdown';
+import { CreateFolderModal } from './CreateFolderModal';
 
 const Bar = styled.div`
   height: 60px;
@@ -349,6 +350,30 @@ const UploadError = styled.div`
   font-size: 14px;
   margin-top: 4px;
 `;
+const Select = styled.select`
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 8px;
+  font-size: 16px;
+  background: ${({ theme }) => theme.colors.surfaceAlt};
+  color: ${({ theme }) => theme.colors.text};
+  margin-bottom: 16px;
+  transition: border-color 0.2s ease;
+  box-sizing: border-box;
+  cursor: pointer;
+  
+  &:focus {
+    outline: none;
+    border-color: ${({ theme }) => theme.colors.primary};
+  }
+  
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+`;
+
 const FileField = styled.input`
   font-size: 15px; 
   display: block;
@@ -492,6 +517,8 @@ export function Header({
   const [file, setFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadAccess, setUploadAccess] = useState<0 | 1>(1);
+  const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const avatarRef = useRef<HTMLButtonElement | null>(null);
@@ -540,8 +567,10 @@ export function Header({
     }
     setUploading(true);
     try {
-      await dispatch(uploadFileAPI({ file, parentId: selectedFolderId }));
-      setUploadOpen(false); setFile(null);
+      await dispatch(uploadFileAPI({ file, parentId: selectedFolderId, access: uploadAccess }));
+      setUploadOpen(false); 
+      setFile(null);
+      setUploadAccess(1); // Сбрасываем на значение по умолчанию
     } catch (e: any) {
       setUploadError(e?.message || 'Ошибка загрузки');
     } finally {
@@ -574,7 +603,7 @@ export function Header({
         </SearchToggleWrapper>
       </SearchContainer>
       <Button
-        onClick={() => dispatch(createFolderAPI({ parentId: selectedFolderId }))}
+        onClick={() => setShowCreateFolderModal(true)}
         className="desktop-only"
       >
         <Icon src={addIcon} alt="Создать папку" />
@@ -622,6 +651,11 @@ export function Header({
             />
           )}
         </Actions>
+      <CreateFolderModal
+        isOpen={showCreateFolderModal}
+        onClose={() => setShowCreateFolderModal(false)}
+        parentId={selectedFolderId}
+      />
       {uploadOpen && (
         <UploadModalBg onClick={() => !uploading && setUploadOpen(false)}>
           <UploadModal onClick={e => e.stopPropagation()}>
@@ -633,13 +667,27 @@ export function Header({
               disabled={uploading}
               onChange={onChooseFile}
             />
-            {file && <div style={{fontSize:15, color:'#888'}}>Файл: {file.name}</div>}
+            {file && <div style={{fontSize:15, color:'#888', marginBottom: '16px'}}>Файл: {file.name}</div>}
+            <Select
+              value={uploadAccess}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setUploadAccess(Number(e.target.value) as 0 | 1)}
+              disabled={uploading}
+            >
+              <option value={1}>Публичный (1)</option>
+              <option value={0}>Приватный (0)</option>
+            </Select>
             {uploadError && <UploadError>{uploadError}</UploadError>}
             <UploadActions>
               <Button 
                 disabled={uploading} 
                 style={{ background: '#8a8a8a', color: '#fff' }} 
-                onClick={()=>{if(!uploading)setUploadOpen(false);}}
+                onClick={()=>{
+                  if(!uploading) {
+                    setUploadOpen(false);
+                    setFile(null);
+                    setUploadAccess(1); // Сбрасываем на значение по умолчанию
+                  }
+                }}
               >
                 Отмена
               </Button>

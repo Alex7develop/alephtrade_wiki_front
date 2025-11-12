@@ -188,30 +188,30 @@ export function FilesList() {
     let result: any[] = [];
     
     if (search && search.trim().length > 0) {
-      console.log('🔍 Поиск активен:', { search, searchType, rootExists: !!root, rootChildren: root?.children?.length });
+      console.log('Поиск активен:', { search, searchType, rootExists: !!root, rootChildren: root?.children?.length });
       
       if (searchType === 'ai') {
         // AI поиск - используем результаты серверного поиска (по всему дереву)
         result = Array.isArray(searchResults) 
           ? searchResults.filter((item: any) => item && item.type === 'file')
           : [];
-        console.log('🤖 AI поиск результатов:', result.length);
+        console.log('AI поиск результатов:', result.length);
       } else {
         // Локальный поиск - ищем по всему дереву файлов по названию
         try {
           if (root && root.children) {
             result = findAllFiles(root, search);
-            console.log('📄 Локальный поиск результатов:', result.length, result.map((f: any) => f.name));
+            console.log('Локальный поиск результатов:', result.length, result.map((f: any) => f.name));
             // Убеждаемся, что получили массив
             if (!Array.isArray(result)) {
               result = [];
             }
           } else {
-            console.warn('⚠️ Root или root.children не определены', { root, hasChildren: !!root?.children });
+            console.warn('Root или root.children не определены', { root, hasChildren: !!root?.children });
             result = [];
           }
         } catch (error) {
-          console.error('❌ Ошибка поиска файлов:', error);
+          console.error('Ошибка поиска файлов:', error);
           result = [];
         }
       }
@@ -226,7 +226,7 @@ export function FilesList() {
   // Отладочный useEffect для отслеживания изменений
   useEffect(() => {
     if (search && search.trim().length > 0) {
-      console.log('📝 Поиск изменился:', { search, searchType, filteredCount: filtered.length });
+      console.log('Поиск изменился:', { search, searchType, filteredCount: filtered.length });
     }
   }, [search, searchType, filtered.length]);
 
@@ -267,10 +267,25 @@ export function FilesList() {
 
   const commitRename = async (id: string) => {
     const newName = editingValue.trim();
-    if (newName && filtered.find((f: any) => f.id === id)?.name !== newName) {
-      await dispatch(renameFileAPI({ uuid: id, name: newName }));
+    if (!newName) {
+      // Если имя пустое, отменяем редактирование
+      setEditingId(null);
+      return;
+    }
+    
+    const currentFile = filtered.find((f: any) => f.id === id);
+    if (currentFile && currentFile.name !== newName) {
+      try {
+        await dispatch(renameFileAPI({ uuid: id, name: newName }));
+        // После успешного переименования дерево обновится автоматически через fetchTree в renameFileAPI
+      } catch (error) {
+        console.error('Ошибка переименования файла:', error);
+        // В случае ошибки оставляем режим редактирования
+        return;
+      }
     }
     setEditingId(null);
+    setEditingValue('');
   };
 
   return (
@@ -326,7 +341,7 @@ export function FilesList() {
             }
             // Логируем для отладки
             if (draggingId && draggingId !== f.id) {
-              console.log('📍 onDragOver над файлом:', f.id, f.name, 'перетаскиваем:', draggingId);
+              console.log('onDragOver над файлом:', f.id, f.name, 'перетаскиваем:', draggingId);
             }
           }}
           onDragLeave={() => {
@@ -349,7 +364,7 @@ export function FilesList() {
             
             // Если перетаскиваем файл на другой файл
             if (draggedId && draggedId !== f.id && folder?.id) {
-              console.log('✅ Условия выполнены, вызываем moveNodeAPI');
+              console.log('Условия выполнены, вызываем moveNodeAPI');
               // Определяем индексы файлов в списке
               const draggedIndex = filtered.findIndex((item: any) => item.id === draggedId);
               const targetIndex = filtered.findIndex((item: any) => item.id === f.id);
@@ -365,7 +380,7 @@ export function FilesList() {
               // При обычном просмотре (без поиска) все файлы из текущей папки
               const isSameFolder = !search || search.trim().length === 0;
               
-              console.log('📁 Проверка условий:', {
+              console.log('Проверка условий:', {
                 isSameFolder,
                 draggedIndexValid: draggedIndex !== -1,
                 targetIndexValid: targetIndex !== -1,
@@ -412,7 +427,7 @@ export function FilesList() {
                   }
                 }
                 
-                console.log('🔄 Изменение порядка файлов:', {
+                console.log('Изменение порядка файлов:', {
                   draggedId,
                   targetId: f.id,
                   draggedIndex,
@@ -443,11 +458,11 @@ export function FilesList() {
                   }
                 });
                 
-                console.log('📞 Вызываем moveNodeAPI с параметрами:', params);
+                console.log('Вызываем moveNodeAPI с параметрами:', params);
                 dispatch(moveNodeAPI(params));
               } else {
                 // Перемещаем файл в эту папку (между папками)
-                console.log('📞 Вызываем moveNodeAPI для перемещения между папками:', {
+                console.log('Вызываем moveNodeAPI для перемещения между папками:', {
                   uuid: draggedId,
                   parent_uuid: folder.id
                 });
@@ -457,7 +472,7 @@ export function FilesList() {
                 }));
               }
             } else {
-              console.log('❌ Условия не выполнены:', {
+              console.log('Условия не выполнены:', {
                 draggedId,
                 fId: f.id,
                 folderId: folder?.id,
@@ -478,7 +493,8 @@ export function FilesList() {
               dispatch(selectFile(f.id));
             }
           }}
-          onDoubleClick={() => {
+          onDoubleClick={(e) => {
+            e.stopPropagation();
             if (f.type === 'file') {
               setEditingId(f.id);
               setEditingValue(f.name);
@@ -492,18 +508,27 @@ export function FilesList() {
               onChange={(e) => setEditingValue(e.target.value)}
               onBlur={() => commitRename(f.id)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') commitRename(f.id);
-                if (e.key === 'Escape') setEditingId(null);
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  commitRename(f.id);
+                }
+                if (e.key === 'Escape') {
+                  setEditingId(null);
+                  setEditingValue('');
+                }
               }}
+              onClick={(e) => e.stopPropagation()}
               style={{
                 height: 28,
                 borderRadius: 8,
-                border: '1px solid rgba(255,255,255,0.08)',
-                background: 'transparent',
+                border: `1px solid ${f.type === 'file' && selectedFileId === f.id ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.2)'}`,
+                background: f.type === 'file' && selectedFileId === f.id ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
                 color: 'inherit',
                 padding: '0 8px',
                 outline: 'none',
-                width: '100%'
+                width: '100%',
+                fontSize: '14px',
+                fontWeight: 500
               }}
             />
           ) : (
@@ -520,16 +545,16 @@ export function FilesList() {
         style={{height:8, width:'100%'}}
         onDragOver={e => {
           e.preventDefault();
-          console.log('📍 onDragOver на фоне списка');
+          console.log('onDragOver на фоне списка');
         }}
         onDrop={e => {
           e.preventDefault();
-          console.log('🎯 onDrop на фоне списка');
+          console.log('onDrop на фоне списка');
           // Определим id drag-элемента
           const id = e.dataTransfer.getData('text/plain');
-          console.log('📦 Данные из dataTransfer:', id);
+          console.log('Данные из dataTransfer:', id);
           if (id && id !== selectedFolderId && folder?.id) {
-            console.log('📞 Вызываем moveNodeAPI с фона списка');
+            console.log('Вызываем moveNodeAPI с фона списка');
             dispatch(moveNodeAPI({ uuid: id, parent_uuid: folder.id }));
           }
         }}

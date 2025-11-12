@@ -57,6 +57,29 @@ const getStoredToken = () => {
   }
 };
 
+// Получаем токен из localStorage для использования в запросах
+const getAuthToken = (): string | null => {
+  try {
+    return localStorage.getItem('auth_token');
+  } catch {
+    return null;
+  }
+};
+
+// Создаем заголовки с токеном авторизации
+const getAuthHeaders = (additionalHeaders: Record<string, string> = {}): Record<string, string> => {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    ...additionalHeaders,
+  };
+  
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  return headers;
+};
+
 const initialState: FsState = {
   root: {
     id: 'root',
@@ -174,10 +197,26 @@ function mapApiToFs(node: ApiNode): FsNode {
   return fsNode;
 }
 
-export const fetchTree = createAsyncThunk('fs/fetchTree', async () => {
-  // Запрашиваем напрямую публичный эндпоинт
-  const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/tree');
-  if (!res.ok) throw new Error('Не удалось загрузить дерево');
+export const fetchTree = createAsyncThunk('fs/fetchTree', async (_, { rejectWithValue }) => {
+  const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/tree', {
+    headers: getAuthHeaders()
+  });
+  
+  // Если получили 401 или 403 - токен невалидный, очищаем его
+  if (res.status === 401 || res.status === 403) {
+    try {
+      localStorage.removeItem('auth_token');
+    } catch (error) {
+      console.error('Ошибка очистки токена:', error);
+    }
+    return rejectWithValue('Требуется авторизация');
+  }
+  
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Не удалось загрузить дерево');
+  }
+  
   const data = (await res.json()) as ApiNode[];
   return data.map(mapApiToFs);
 });
@@ -186,20 +225,26 @@ export const fetchTree = createAsyncThunk('fs/fetchTree', async () => {
 export const createFolderAPI = createAsyncThunk(
   'fs/createFolderAPI',
   async (
-    { parentId, name }: { parentId?: string; name?: string },
+    { parentId, name, access }: { parentId?: string; name?: string; access?: 0 | 1 },
     { dispatch, rejectWithValue }
   ) => {
     try {
       // Позволяем создавать на root, если parentId некорректен
       const parent_uuid = parentId && parentId !== 'root' ? parentId : undefined;
-      const reqBody = {
+      const reqBody: any = {
         name: name?.trim() || 'Новая папка',
         ...(parent_uuid ? { parent_uuid } : {}),
-        access: 1
       };
+      
+      // Добавляем access только если он передан
+      if (typeof access === 'number') {
+        reqBody.access = access;
+      } else {
+        reqBody.access = 1; // По умолчанию публичная
+      }
       const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/create_folder', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(reqBody)
       });
       if (!res.ok) {
@@ -219,17 +264,27 @@ export const createFolderAPI = createAsyncThunk(
 export const uploadFileAPI = createAsyncThunk(
   'fs/uploadFileAPI',
   async (
-    { parentId, file }: { parentId?: string; file: File },
+    { parentId, file, access }: { parentId?: string; file: File; access?: 0 | 1 },
     { dispatch, rejectWithValue }
   ) => {
     try {
       const form = new FormData();
       form.append('file', file);
       if (parentId && parentId !== 'root') form.append('parent_uuid', parentId);
-      form.append('access', '1');
+      
+      // Добавляем access только если он передан, иначе используем значение по умолчанию
+      const accessValue = typeof access === 'number' ? access : 1;
+      form.append('access', String(accessValue));
 
+      const token = getAuthToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
       const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/upload_file', {
         method: 'POST',
+        headers,
         body: form
       });
       if (!res.ok) {
@@ -257,7 +312,7 @@ export const renameFileAPI = createAsyncThunk(
         `https://api.alephtrade.com/backend_wiki/api/v2/update_file/${uuid}`,
         {
           method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({ name })
         }
       );
@@ -283,7 +338,10 @@ export const deleteFileAPI = createAsyncThunk(
     try {
       const res = await fetch(
         `https://api.alephtrade.com/backend_wiki/api/v2/delete_file/${uuid}`,
-        { method: 'DELETE' }
+        { 
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        }
       );
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -311,7 +369,10 @@ export const deleteFolderAPI = createAsyncThunk(
         url
       });
       
-      const res = await fetch(url, { method: 'DELETE' });
+              const res = await fetch(url, { 
+                method: 'DELETE',
+                headers: getAuthHeaders()
+              });
       
       const responseData = await res.json().catch(() => ({}));
       console.log('📥 Ответ от API delete_folder:', {
@@ -384,14 +445,14 @@ export const moveNodeAPI = createAsyncThunk(
         url: `https://api.alephtrade.com/backend_wiki/api/v2/update_structure/${uuid}`
       });
       
-      const res = await fetch(
-        `https://api.alephtrade.com/backend_wiki/api/v2/update_structure/${uuid}`,
-        {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        }
-      );
+              const res = await fetch(
+                `https://api.alephtrade.com/backend_wiki/api/v2/update_structure/${uuid}`,
+                {
+                  method: 'PATCH',
+                  headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+                  body: JSON.stringify(body)
+                }
+              );
       
       const responseData = await res.json().catch(() => ({}));
       console.log('📥 Ответ от API update_structure:', {
@@ -420,7 +481,7 @@ export const sendSms = createAsyncThunk(
     try {
       const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/send_sms', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ phone })
       });
       if (!res.ok) {
@@ -440,7 +501,7 @@ export const confirmSms = createAsyncThunk(
     try {
       const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/confirm_sms', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ phone, code })
       });
       if (!res.ok) {
@@ -460,10 +521,7 @@ export const getUser = createAsyncThunk(
     try {
       const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/user/get', {
         method: 'GET',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' })
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -482,10 +540,7 @@ export const logout = createAsyncThunk(
     try {
       const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/user/logout', {
         method: 'GET',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        }
+        headers: getAuthHeaders({ 'Content-Type': 'application/json' })
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -510,7 +565,7 @@ export const searchAPI = createAsyncThunk(
         'https://api.alephtrade.com/backend_wiki/api/v2/search',
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             search_string: query.trim(),
             access: 0

@@ -1,7 +1,7 @@
 import styled from 'styled-components';
 import { useDispatch, useSelector } from 'react-redux';
-import { useMemo, useState } from 'react';
-import { selectFolder, selectFile, moveNodeAPI } from '@/store/fsSlice';
+import { useMemo, useState, useRef, useEffect } from 'react';
+import { selectFolder, selectFile, moveNodeAPI, renameFileAPI } from '@/store/fsSlice';
 import type { RootState } from '@/store/store';
 import fileIcon from '/icon/icons8-файл.svg';
 
@@ -92,6 +92,25 @@ const Name = styled.span`
   flex: 1;
 `;
 
+const EditInput = styled.input`
+  flex: 1;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid ${({ theme }) => theme.colors.primary};
+  background: ${({ theme }) => theme.colors.surface};
+  color: ${({ theme }) => theme.colors.text};
+  padding: 0 8px;
+  outline: none;
+  font-size: 14px;
+  font-weight: 500;
+  min-width: 0;
+  
+  &:focus {
+    border-color: ${({ theme }) => theme.colors.primary};
+    box-shadow: 0 0 0 2px rgba(90,90,90,0.1);
+  }
+`;
+
 function getFileIcon(mime?: string): JSX.Element {
   return <Icon src={fileIcon} alt="Файл" />;
 }
@@ -100,11 +119,28 @@ function matches(query: string, name: string) {
   return name.toLowerCase().includes(query.trim().toLowerCase());
 }
 
-function TreeNode({ node, level, expanded, toggle }: { 
+function TreeNode({ 
+  node, 
+  level, 
+  expanded, 
+  toggle,
+  editingId,
+  setEditingId,
+  editingValue,
+  setEditingValue,
+  commitRename,
+  inputRef
+}: { 
   node: any; 
   level: number; 
   expanded: Set<string>; 
   toggle: (id: string) => void;
+  editingId: string | null;
+  setEditingId: (id: string | null) => void;
+  editingValue: string;
+  setEditingValue: (value: string) => void;
+  commitRename: (id: string) => void;
+  inputRef: React.RefObject<HTMLInputElement>;
 }) {
   const dispatch: any = useDispatch();
   const selectedFolderId = useSelector((s: RootState) => s.fs.selectedFolderId);
@@ -115,6 +151,7 @@ function TreeNode({ node, level, expanded, toggle }: {
 
   const isExpanded = expanded.has(node.id);
   const isSelected = isFolder ? selectedFolderId === node.id : selectedFileId === node.id;
+  const isEditing = editingId === node.id;
 
   return (
     <div>
@@ -125,12 +162,25 @@ function TreeNode({ node, level, expanded, toggle }: {
           boxShadow: dropTargetId === node.id ? 'inset 0 0 0 2px #16aaff' : undefined,
           background: dropTargetId === node.id ? 'rgba(22,170,255,0.11)' : undefined,
         }}
-        onClick={() => {
+        onClick={(e) => {
+          // Не обрабатываем клик, если идет редактирование
+          if (isEditing) {
+            e.stopPropagation();
+            return;
+          }
           if (isFolder) {
             toggle(node.id);
             dispatch(selectFolder(node.id));
           } else {
             dispatch(selectFile(node.id));
+          }
+        }}
+        onDoubleClick={(e) => {
+          e.stopPropagation();
+          // Переименование только для файлов
+          if (!isFolder && node.type === 'file') {
+            setEditingId(node.id);
+            setEditingValue(node.name);
           }
         }}
         title={node.name}
@@ -160,7 +210,28 @@ function TreeNode({ node, level, expanded, toggle }: {
         <Caret>
           {isFolder ? (isExpanded ? '📂' : '📁') : getFileIcon(node.mime)}
         </Caret>
-        <Name>{node.name}</Name>
+        {isEditing ? (
+          <EditInput
+            ref={inputRef}
+            value={editingValue}
+            onChange={(e) => setEditingValue(e.target.value)}
+            onBlur={() => commitRename(node.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commitRename(node.id);
+              }
+              if (e.key === 'Escape') {
+                setEditingId(null);
+                setEditingValue('');
+              }
+            }}
+            onClick={(e) => e.stopPropagation()}
+            autoFocus
+          />
+        ) : (
+          <Name>{node.name}</Name>
+        )}
       </ItemRow>
       {isFolder && isExpanded && (node.children ?? [])
         .map((c: any) => (
@@ -170,6 +241,12 @@ function TreeNode({ node, level, expanded, toggle }: {
             level={level + 1} 
             expanded={expanded} 
             toggle={toggle}
+            editingId={editingId}
+            setEditingId={setEditingId}
+            editingValue={editingValue}
+            setEditingValue={setEditingValue}
+            commitRename={commitRename}
+            inputRef={inputRef}
           />
         ))}
     </div>
@@ -177,8 +254,13 @@ function TreeNode({ node, level, expanded, toggle }: {
 }
 
 export function Sidebar() {
+  const dispatch: any = useDispatch();
   const root = useSelector((s: RootState) => s.fs.root);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['root']));
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingValue, setEditingValue] = useState<string>('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const toggle = (id: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -187,6 +269,50 @@ export function Sidebar() {
     });
   };
   useMemo(() => expanded, [expanded]);
+
+  // Фокус на input при начале редактирования
+  useEffect(() => {
+    if (editingId && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [editingId]);
+
+  // Функция для сохранения переименования
+  const commitRename = async (id: string) => {
+    const newName = editingValue.trim();
+    if (!newName) {
+      // Если имя пустое, отменяем редактирование
+      setEditingId(null);
+      return;
+    }
+    
+    // Находим файл в дереве для проверки текущего имени
+    const findNode = (node: any): any => {
+      if (node.id === id) return node;
+      if (node.children) {
+        for (const child of node.children) {
+          const found = findNode(child);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+    
+    const currentNode = findNode(root);
+    if (currentNode && currentNode.name !== newName) {
+      try {
+        await dispatch(renameFileAPI({ uuid: id, name: newName }));
+        // После успешного переименования дерево обновится автоматически через fetchTree в renameFileAPI
+      } catch (error) {
+        console.error('Ошибка переименования файла:', error);
+        // В случае ошибки оставляем режим редактирования
+        return;
+      }
+    }
+    setEditingId(null);
+    setEditingValue('');
+  };
 
   // Sidebar всегда показывает полное дерево файлов для навигации
   // Результаты поиска показываются только в основной области (FilesList)
@@ -197,6 +323,12 @@ export function Sidebar() {
         level={0} 
         expanded={expanded} 
         toggle={toggle}
+        editingId={editingId}
+        setEditingId={setEditingId}
+        editingValue={editingValue}
+        setEditingValue={setEditingValue}
+        commitRename={commitRename}
+        inputRef={inputRef}
       />
     </TreeWrap>
   );
