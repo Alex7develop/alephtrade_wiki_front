@@ -129,7 +129,8 @@ function TreeNode({
   editingValue,
   setEditingValue,
   commitRename,
-  inputRef
+  inputRef,
+  isAuthenticated
 }: { 
   node: any; 
   level: number; 
@@ -141,6 +142,7 @@ function TreeNode({
   setEditingValue: (value: string) => void;
   commitRename: (id: string) => void;
   inputRef: React.RefObject<HTMLInputElement>;
+  isAuthenticated: boolean;
 }) {
   const dispatch: any = useDispatch();
   const selectedFolderId = useSelector((s: RootState) => s.fs.selectedFolderId);
@@ -177,8 +179,8 @@ function TreeNode({
         }}
         onDoubleClick={(e) => {
           e.stopPropagation();
-          // Переименование только для файлов
-          if (!isFolder && node.type === 'file') {
+          // Переименование только для файлов и только если авторизован
+          if (!isFolder && node.type === 'file' && isAuthenticated) {
             setEditingId(node.id);
             setEditingValue(node.name);
           }
@@ -192,6 +194,10 @@ function TreeNode({
         }}
         onDragLeave={e => { if (isFolder) setDropTargetId(null); }}
         onDrop={e => {
+          if (!isAuthenticated) {
+            e.preventDefault();
+            return;
+          }
           if (!isFolder || node.id === 'root') return;
           e.preventDefault();
           const sourceId = e.dataTransfer.getData('text/plain');
@@ -199,11 +205,13 @@ function TreeNode({
           setDropTargetId(null);
           dispatch(moveNodeAPI({ uuid: sourceId, parent_uuid: node.id }));
         }}
-        draggable={!isFolder}
+        draggable={!isFolder && isAuthenticated}
         onDragStart={e => {
-          if (!isFolder) {
+          if (!isFolder && isAuthenticated) {
             e.dataTransfer.effectAllowed = 'move';
             e.dataTransfer.setData('text/plain', node.id);
+          } else {
+            e.preventDefault();
           }
         }}
       >
@@ -247,6 +255,7 @@ function TreeNode({
             setEditingValue={setEditingValue}
             commitRename={commitRename}
             inputRef={inputRef}
+            isAuthenticated={isAuthenticated}
           />
         ))}
     </div>
@@ -256,10 +265,13 @@ function TreeNode({
 export function Sidebar() {
   const dispatch: any = useDispatch();
   const root = useSelector((s: RootState) => s.fs.root);
+  const auth = useSelector((s: RootState) => s.fs.auth);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['root']));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
   const inputRef = useRef<HTMLInputElement>(null);
+  
+  const isAuthenticated = auth.isAuthenticated && !!auth.token;
 
   const toggle = (id: string) => {
     setExpanded((prev) => {
@@ -280,6 +292,12 @@ export function Sidebar() {
 
   // Функция для сохранения переименования
   const commitRename = async (id: string) => {
+    if (!isAuthenticated) {
+      setEditingId(null);
+      setEditingValue('');
+      return;
+    }
+    
     const newName = editingValue.trim();
     if (!newName) {
       // Если имя пустое, отменяем редактирование
@@ -329,6 +347,7 @@ export function Sidebar() {
         setEditingValue={setEditingValue}
         commitRename={commitRename}
         inputRef={inputRef}
+        isAuthenticated={isAuthenticated}
       />
     </TreeWrap>
   );

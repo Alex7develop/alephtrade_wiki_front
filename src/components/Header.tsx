@@ -602,20 +602,24 @@ export function Header({
           </SearchToggleText>
         </SearchToggleWrapper>
       </SearchContainer>
-      <Button
-        onClick={() => setShowCreateFolderModal(true)}
-        className="desktop-only"
-      >
-        <Icon src={addIcon} alt="Создать папку" />
-        <span className="button-text">Создать папку</span>
-      </Button>
-      <Button
-        onClick={() => setUploadOpen(true)}
-        className="desktop-only"
-      >
-        <Icon src={uploadIcon} alt="Загрузить файл" />
-        <span className="button-text">Загрузить файл</span>
-      </Button>
+      {auth.isAuthenticated && auth.token && (
+        <>
+          <Button
+            onClick={() => setShowCreateFolderModal(true)}
+            className="desktop-only"
+          >
+            <Icon src={addIcon} alt="Создать папку" />
+            <span className="button-text">Создать папку</span>
+          </Button>
+          <Button
+            onClick={() => setUploadOpen(true)}
+            className="desktop-only"
+          >
+            <Icon src={uploadIcon} alt="Загрузить файл" />
+            <span className="button-text">Загрузить файл</span>
+          </Button>
+        </>
+      )}
         <Toggle onClick={toggle} title="Сменить тему" className="desktop-only">
           <Icon src={themeIcon} alt="Тема" />
           {mode === 'light' ? '' : ''}

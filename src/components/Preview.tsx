@@ -8,11 +8,13 @@ import { marked } from 'marked';
 import html2canvas from 'html2canvas';
 import downloadIcon from '/icon/download_15545982.png';
 import deleteIcon from '/icon/dustbin_14492622.png';
+import editIcon from '/icon/edit.svg';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from '@/store/store';
 import {
   deleteFileAPI,
   deleteFolderAPI,
+  renameFileAPI,
   selectFile,
   selectFolder,
 } from '@/store/fsSlice';
@@ -64,6 +66,183 @@ const Title = styled.div`
 
 const ToolbarSpacer = styled.div`
   flex: 1;
+`;
+
+const FileNameContainer = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 16px;
+  
+  @media (max-width: 768px) {
+    margin-right: 12px;
+    gap: 6px;
+  }
+  
+  @media (max-width: 480px) {
+    margin-right: 8px;
+    gap: 4px;
+  }
+`;
+
+const FileName = styled.div`
+  font-size: 16px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 400px;
+  
+  @media (max-width: 768px) {
+    font-size: 14px;
+    max-width: 200px;
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 13px;
+    max-width: 150px;
+  }
+`;
+
+const EditIcon = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  opacity: 0.6;
+  
+  &:hover {
+    background: ${({ theme }) => theme.colors.surfaceAlt};
+    opacity: 1;
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+  
+  @media (max-width: 480px) {
+    width: 28px;
+    height: 28px;
+  }
+`;
+
+const EditIconImg = styled.img`
+  width: 16px;
+  height: 16px;
+  filter: ${({ theme }) => theme.mode === 'dark' ? 'brightness(0) invert(1)' : 'none'};
+  
+  @media (max-width: 480px) {
+    width: 18px;
+    height: 18px;
+  }
+`;
+
+const EditInput = styled.input`
+  font-size: 16px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text};
+  background: ${({ theme }) => theme.colors.surfaceAlt};
+  border: 2px solid ${({ theme }) => theme.colors.primary};
+  border-radius: 6px;
+  padding: 4px 8px;
+  outline: none;
+  min-width: 400px;
+  max-width: 400px;
+  
+  &:focus {
+    border-color: ${({ theme }) => theme.colors.primary};
+    box-shadow: 0 0 0 2px rgba(90,90,90,0.1);
+  }
+  
+  @media (max-width: 768px) {
+    font-size: 14px;
+    min-width: 150px;
+    max-width: 200px;
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 13px;
+    min-width: 120px;
+    max-width: 150px;
+  }
+`;
+
+const EditActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+`;
+
+const SaveBtn = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: ${({ theme }) => theme.colors.primary};
+  color: #fff;
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 14px;
+  padding: 0;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: ${({ theme }) => theme.colors.primaryAccent};
+    transform: scale(1.05);
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+  
+  @media (max-width: 480px) {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+`;
+
+const CancelBtn = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: ${({ theme }) => theme.colors.surfaceAlt};
+  color: ${({ theme }) => theme.colors.text};
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 18px;
+  padding: 0;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: ${({ theme }) => theme.colors.border};
+    transform: scale(1.05);
+  }
+  
+  &:active {
+    transform: scale(0.95);
+  }
+  
+  @media (max-width: 480px) {
+    width: 32px;
+    height: 32px;
+    font-size: 20px;
+  }
 `;
 
 const ActionBtn = styled.button`
@@ -238,7 +417,7 @@ const MdWrap = styled.div`
 
 export function Preview() {
   const dispatch: any = useDispatch();
-  const { root, selectedFileId, selectedFolderId, search } = useSelector((s: RootState) => s.fs);
+  const { root, selectedFileId, selectedFolderId, search, auth } = useSelector((s: RootState) => s.fs);
   const theme = useTheme();
 
   // Markdown preview state must be declared before any return to preserve hooks order
@@ -246,6 +425,10 @@ export function Preview() {
   const [mdError, setMdError] = useState<string | null>(null);
   const [mdText, setMdText] = useState<string>('');
   const [mdHtml, setMdHtml] = useState<string>('');
+  
+  // Состояние для редактирования имени файла
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editingNameValue, setEditingNameValue] = useState('');
 
   function find(node: any, id: string | null): any | null {
     if (!id) return null;
@@ -260,6 +443,12 @@ export function Preview() {
   // Ищем узел по selectedFileId или selectedFolderId
   // Приоритет у selectedFileId (если выбран файл)
   const node = find(root, selectedFileId || selectedFolderId);
+  
+  // Сбрасываем режим редактирования при смене файла
+  useEffect(() => {
+    setIsEditingName(false);
+    setEditingNameValue('');
+  }, [selectedFileId, selectedFolderId]);
 
   // Load markdown content when applicable. The hook is always called.
   useEffect(() => {
@@ -611,29 +800,107 @@ export function Preview() {
     }
   };
 
+  const handleStartEdit = () => {
+    if (node && node.name && auth.isAuthenticated && auth.token) {
+      setIsEditingName(true);
+      setEditingNameValue(node.name);
+    }
+  };
+
+  const handleSaveName = async () => {
+    if (!node?.id || !editingNameValue.trim()) {
+      setIsEditingName(false);
+      setEditingNameValue('');
+      return;
+    }
+    
+    if (editingNameValue.trim() === node.name) {
+      setIsEditingName(false);
+      setEditingNameValue('');
+      return;
+    }
+    
+    try {
+      await dispatch(renameFileAPI({ uuid: node.id, name: editingNameValue.trim() }));
+      setIsEditingName(false);
+      setEditingNameValue('');
+    } catch (error) {
+      console.error('Ошибка переименования файла:', error);
+      alert('Не удалось переименовать файл');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditingName(false);
+    setEditingNameValue('');
+  };
+
   return (
     <Wrap>
       <Toolbar>
-        <ToolbarSpacer />
-        {!isFolder && (
-          <ActionBtn
-            onClick={deleteFile}
-            title="Удалить файл"
-            style={{ color: '#fff', background: '#8a8a8a', borderColor: '#8a8a8a' }}
-          >
-            <Icon src={deleteIcon} alt="Удалить" />
-            Удалить
-          </ActionBtn>
+        {node && node.name && (
+          <FileNameContainer>
+            {isEditingName ? (
+              <>
+                <EditInput
+                  value={editingNameValue}
+                  onChange={(e) => setEditingNameValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSaveName();
+                    }
+                    if (e.key === 'Escape') {
+                      handleCancelEdit();
+                    }
+                  }}
+                  autoFocus
+                />
+                <EditActions>
+                  <SaveBtn onClick={handleSaveName} title="Сохранить">
+                    ✓
+                  </SaveBtn>
+                  <CancelBtn onClick={handleCancelEdit} title="Отменить">
+                    ×
+                  </CancelBtn>
+                </EditActions>
+              </>
+            ) : (
+              <>
+                <FileName title={node.name}>{node.name}</FileName>
+                {auth.isAuthenticated && auth.token && node.type !== 'folder' && (
+                  <EditIcon onClick={handleStartEdit} title="Редактировать имя файла">
+                    <EditIconImg src={editIcon} alt="Редактировать" />
+                  </EditIcon>
+                )}
+              </>
+            )}
+          </FileNameContainer>
         )}
-        {isFolder && node.id !== 'root' && (
-          <ActionBtn
-            onClick={deleteFolder}
-            title="Удалить папку"
-            style={{ color: '#fff', background: '#8a8a8a', borderColor: '#8a8a8a' }}
-          >
-            <Icon src={deleteIcon} alt="Удалить папку" />
-            Удалить папку
-          </ActionBtn>
+        <ToolbarSpacer />
+        {auth.isAuthenticated && auth.token && (
+          <>
+            {!isFolder && (
+              <ActionBtn
+                onClick={deleteFile}
+                title="Удалить файл"
+                style={{ color: '#fff', background: '#8a8a8a', borderColor: '#8a8a8a' }}
+              >
+                <Icon src={deleteIcon} alt="Удалить" />
+                Удалить
+              </ActionBtn>
+            )}
+            {isFolder && node.id !== 'root' && (
+              <ActionBtn
+                onClick={deleteFolder}
+                title="Удалить папку"
+                style={{ color: '#fff', background: '#8a8a8a', borderColor: '#8a8a8a' }}
+              >
+                <Icon src={deleteIcon} alt="Удалить папку" />
+                Удалить папку
+              </ActionBtn>
+            )}
+          </>
         )}
         {isMd && (
           <ActionBtn onClick={downloadMd} title="Скачать как PDF">

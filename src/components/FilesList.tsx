@@ -175,7 +175,8 @@ function findAllFiles(node: any, query: string): any[] {
 
 export function FilesList() {
   const dispatch: any = useDispatch();
-  const { root, selectedFolderId, selectedFileId, search, searchType, searchResults, searchLoading, searchError } = useSelector((s: RootState) => s.fs);
+  const { root, selectedFolderId, selectedFileId, search, searchType, searchResults, searchLoading, searchError, auth } = useSelector((s: RootState) => s.fs);
+  const isAuthenticated = auth.isAuthenticated && !!auth.token;
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
   const [draggingId, setDraggingId] = useState<string | null>(null);
@@ -266,6 +267,12 @@ export function FilesList() {
   }, [editingId]);
 
   const commitRename = async (id: string) => {
+    if (!isAuthenticated) {
+      setEditingId(null);
+      setEditingValue('');
+      return;
+    }
+    
     const newName = editingValue.trim();
     if (!newName) {
       // Если имя пустое, отменяем редактирование
@@ -320,8 +327,12 @@ export function FilesList() {
             boxShadow: draggingId === f.id ? '0 0 8px #3178ff' :
               dropTargetId === f.id ? 'inset 0 0 0 2px #31a8ff' : undefined
           }}
-          draggable
+          draggable={isAuthenticated}
           onDragStart={e => {
+            if (!isAuthenticated) {
+              e.preventDefault();
+              return;
+            }
             console.log('🚀 onDragStart вызван для файла:', f.id, f.name);
             setDraggingId(f.id);
             e.dataTransfer.effectAllowed = 'move';
@@ -495,7 +506,7 @@ export function FilesList() {
           }}
           onDoubleClick={(e) => {
             e.stopPropagation();
-            if (f.type === 'file') {
+            if (f.type === 'file' && isAuthenticated) {
               setEditingId(f.id);
               setEditingValue(f.name);
             }

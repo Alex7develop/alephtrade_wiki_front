@@ -197,8 +197,22 @@ function mapApiToFs(node: ApiNode): FsNode {
   return fsNode;
 }
 
-export const fetchTree = createAsyncThunk('fs/fetchTree', async (_, { rejectWithValue }) => {
-  const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/tree', {
+export const fetchTree = createAsyncThunk('fs/fetchTree', async (access: 0 | 1 | undefined = undefined, { rejectWithValue, getState }) => {
+  // Получаем состояние для проверки авторизации
+  const state = getState() as { fs: FsState };
+  const isAuthenticated = state.fs.auth.isAuthenticated && !!state.fs.auth.token;
+  
+  // Если не авторизован, всегда используем access: 0 для получения только публичных файлов
+  // Если авторизован и access передан - используем его, иначе загружаем все файлы
+  const accessLevel = isAuthenticated ? access : 0;
+  
+  // Формируем URL с query параметром access, если он указан
+  let url = 'https://api.alephtrade.com/backend_wiki/api/v2/tree';
+  if (accessLevel !== undefined) {
+    url += `?access=${accessLevel}`;
+  }
+  
+  const res = await fetch(url, {
     headers: getAuthHeaders()
   });
   
@@ -208,6 +222,15 @@ export const fetchTree = createAsyncThunk('fs/fetchTree', async (_, { rejectWith
       localStorage.removeItem('auth_token');
     } catch (error) {
       console.error('Ошибка очистки токена:', error);
+    }
+    // Если не авторизован и получили ошибку - пробуем загрузить с access: 0
+    if (!isAuthenticated) {
+      const publicUrl = 'https://api.alephtrade.com/backend_wiki/api/v2/tree?access=0';
+      const publicRes = await fetch(publicUrl);
+      if (publicRes.ok) {
+        const publicData = (await publicRes.json()) as ApiNode[];
+        return publicData.map(mapApiToFs);
+      }
     }
     return rejectWithValue('Требуется авторизация');
   }
@@ -226,8 +249,14 @@ export const createFolderAPI = createAsyncThunk(
   'fs/createFolderAPI',
   async (
     { parentId, name, access }: { parentId?: string; name?: string; access?: 0 | 1 },
-    { dispatch, rejectWithValue }
+    { dispatch, rejectWithValue, getState }
   ) => {
+    // Проверяем авторизацию
+    const state = getState() as { fs: FsState };
+    if (!state.fs.auth.isAuthenticated || !state.fs.auth.token) {
+      return rejectWithValue('Требуется авторизация для создания папки');
+    }
+    
     try {
       // Позволяем создавать на root, если parentId некорректен
       const parent_uuid = parentId && parentId !== 'root' ? parentId : undefined;
@@ -265,8 +294,14 @@ export const uploadFileAPI = createAsyncThunk(
   'fs/uploadFileAPI',
   async (
     { parentId, file, access }: { parentId?: string; file: File; access?: 0 | 1 },
-    { dispatch, rejectWithValue }
+    { dispatch, rejectWithValue, getState }
   ) => {
+    // Проверяем авторизацию
+    const state = getState() as { fs: FsState };
+    if (!state.fs.auth.isAuthenticated || !state.fs.auth.token) {
+      return rejectWithValue('Требуется авторизация для загрузки файла');
+    }
+    
     try {
       const form = new FormData();
       form.append('file', file);
@@ -305,8 +340,14 @@ export const renameFileAPI = createAsyncThunk(
   'fs/renameFileAPI',
   async (
     { uuid, name }: { uuid: string; name: string },
-    { dispatch, rejectWithValue }
+    { dispatch, rejectWithValue, getState }
   ) => {
+    // Проверяем авторизацию
+    const state = getState() as { fs: FsState };
+    if (!state.fs.auth.isAuthenticated || !state.fs.auth.token) {
+      return rejectWithValue('Требуется авторизация для переименования файла');
+    }
+    
     try {
       const res = await fetch(
         `https://api.alephtrade.com/backend_wiki/api/v2/update_file/${uuid}`,
@@ -333,8 +374,14 @@ export const deleteFileAPI = createAsyncThunk(
   'fs/deleteFileAPI',
   async (
     { uuid }: { uuid: string },
-    { dispatch, rejectWithValue }
+    { dispatch, rejectWithValue, getState }
   ) => {
+    // Проверяем авторизацию
+    const state = getState() as { fs: FsState };
+    if (!state.fs.auth.isAuthenticated || !state.fs.auth.token) {
+      return rejectWithValue('Требуется авторизация для удаления файла');
+    }
+    
     try {
       const res = await fetch(
         `https://api.alephtrade.com/backend_wiki/api/v2/delete_file/${uuid}`,
@@ -360,8 +407,14 @@ export const deleteFolderAPI = createAsyncThunk(
   'fs/deleteFolderAPI',
   async (
     { uuid }: { uuid: string },
-    { dispatch, rejectWithValue }
+    { dispatch, rejectWithValue, getState }
   ) => {
+    // Проверяем авторизацию
+    const state = getState() as { fs: FsState };
+    if (!state.fs.auth.isAuthenticated || !state.fs.auth.token) {
+      return rejectWithValue('Требуется авторизация для удаления папки');
+    }
+    
     try {
       const url = `https://api.alephtrade.com/backend_wiki/api/v2/delete_folder/${uuid}`;
       console.log('🗑️ Отправка запроса на удаление папки:', {
@@ -369,10 +422,10 @@ export const deleteFolderAPI = createAsyncThunk(
         url
       });
       
-              const res = await fetch(url, { 
-                method: 'DELETE',
-                headers: getAuthHeaders()
-              });
+      const res = await fetch(url, { 
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
       
       const responseData = await res.json().catch(() => ({}));
       console.log('📥 Ответ от API delete_folder:', {
@@ -407,8 +460,14 @@ export const moveNodeAPI = createAsyncThunk(
       before_uuid?: string; // UUID файла, перед которым нужно вставить
       order?: number; // Позиция в списке
     },
-    { dispatch, rejectWithValue }
+    { dispatch, rejectWithValue, getState }
   ) => {
+    // Проверяем авторизацию
+    const state = getState() as { fs: FsState };
+    if (!state.fs.auth.isAuthenticated || !state.fs.auth.token) {
+      return rejectWithValue('Требуется авторизация для перемещения файла');
+    }
+    
     try {
       const body: any = {};
       if (name) body.name = name;
@@ -556,11 +615,17 @@ export const logout = createAsyncThunk(
 // Thunk: поиск через API POST /api/v2/search
 export const searchAPI = createAsyncThunk(
   'fs/searchAPI',
-  async (query: string, { rejectWithValue }) => {
+  async (query: string, { rejectWithValue, getState }) => {
     try {
       if (!query || query.trim().length === 0) {
         return [];
       }
+      
+      // Проверяем авторизацию для определения уровня доступа
+      const state = getState() as { fs: FsState };
+      const isAuthenticated = state.fs.auth.isAuthenticated && !!state.fs.auth.token;
+      const accessLevel = isAuthenticated ? 0 : 0; // Для неавторизованных только публичные файлы
+      
       const res = await fetch(
         'https://api.alephtrade.com/backend_wiki/api/v2/search',
         {
@@ -568,7 +633,7 @@ export const searchAPI = createAsyncThunk(
           headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
           body: JSON.stringify({
             search_string: query.trim(),
-            access: 0
+            access: accessLevel
           })
         }
       );

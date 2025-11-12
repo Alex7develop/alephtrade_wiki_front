@@ -132,9 +132,14 @@ export default function App() {
   useEffect(() => {
     const token = localStorage.getItem('auth_token');
     if (!token) {
-      // Если токена нет - показываем модальное окно авторизации
-      setShowAuthModal(true);
-      setIsInitialized(true);
+      // Если токена нет - загружаем дерево с access: 0 (только публичные файлы)
+      // НЕ показываем модальное окно авторизации автоматически
+      dispatch(fetchTree(0) as any).then((result: any) => {
+        if (result.type && result.type.includes('fulfilled')) {
+          setHasLoadedTree(true);
+        }
+        setIsInitialized(true);
+      });
     } else {
       // Если токен есть - проверяем его валидность, загружая дерево
       // Если токен невалидный, fetchTree вернет ошибку и мы покажем модальное окно
@@ -150,13 +155,19 @@ export default function App() {
                 // Пользователь авторизован, можно загружать дерево
                 setHasLoadedTree(true);
               } else {
-                // Токен невалидный - показываем модальное окно
-                setShowAuthModal(true);
+                // Токен невалидный - загружаем публичное дерево
+                // НЕ показываем модальное окно автоматически
                 try {
                   localStorage.removeItem('auth_token');
                 } catch (e) {
                   console.error('Ошибка очистки токена:', e);
                 }
+                // Загружаем публичное дерево
+                dispatch(fetchTree(0) as any).then((publicResult: any) => {
+                  if (publicResult.type && publicResult.type.includes('fulfilled')) {
+                    setHasLoadedTree(true);
+                  }
+                });
               }
             });
           } else {
@@ -164,32 +175,49 @@ export default function App() {
             setHasLoadedTree(true);
           }
         } else {
-          // Если запрос не удался из-за авторизации - показываем модальное окно
-          setShowAuthModal(true);
+          // Если запрос не удался из-за авторизации - загружаем публичное дерево
+          // НЕ показываем модальное окно автоматически
           // Очищаем состояние авторизации
           try {
             localStorage.removeItem('auth_token');
           } catch (e) {
             console.error('Ошибка очистки токена:', e);
           }
+          // Загружаем публичное дерево
+          dispatch(fetchTree(0) as any).then((publicResult: any) => {
+            if (publicResult.type && publicResult.type.includes('fulfilled')) {
+              setHasLoadedTree(true);
+            }
+          });
         }
         setIsInitialized(true);
       }).catch(() => {
-        // В случае ошибки показываем модальное окно
-        setShowAuthModal(true);
+        // В случае ошибки загружаем публичное дерево
+        // НЕ показываем модальное окно автоматически
+        dispatch(fetchTree(0) as any).then((publicResult: any) => {
+          if (publicResult.type && publicResult.type.includes('fulfilled')) {
+            setHasLoadedTree(true);
+          }
+        });
         setIsInitialized(true);
       });
     }
   }, [dispatch]);
 
-  // Загружаем дерево после успешной авторизации (только если еще не загружали)
+  // Загружаем полное дерево после успешной авторизации
   useEffect(() => {
-    if (auth.isAuthenticated && auth.token && isInitialized && !hasLoadedTree) {
-      // Загружаем дерево только если пользователь авторизован и дерево еще не загружено
-      dispatch(fetchTree() as any);
-      setHasLoadedTree(true);
+    if (auth.isAuthenticated && auth.token && isInitialized) {
+      // После авторизации загружаем полное дерево (без ограничения по access)
+      dispatch(fetchTree() as any).then((result: any) => {
+        if (result.type && result.type.includes('fulfilled')) {
+          setHasLoadedTree(true);
+        }
+      });
+    } else if (!auth.isAuthenticated && isInitialized && hasLoadedTree) {
+      // Если пользователь вышел - перезагружаем публичное дерево
+      dispatch(fetchTree(0) as any);
     }
-  }, [auth.isAuthenticated, auth.token, isInitialized, hasLoadedTree, dispatch]);
+  }, [auth.isAuthenticated, auth.token, isInitialized, dispatch]);
 
   // Обрабатываем ошибку авторизации при загрузке дерева
   useEffect(() => {
@@ -227,8 +255,8 @@ export default function App() {
         />
       </HeaderArea>
       <MobileOverlay $sidebarOpen={sidebarOpen} onClick={() => setSidebarOpen(false)} />
-      {/* Показываем контент только если пользователь авторизован И дерево загружено */}
-      {auth.isAuthenticated && auth.token && hasLoadedTree && (
+      {/* Показываем контент если дерево загружено (для авторизованных и неавторизованных) */}
+      {hasLoadedTree && (
         <>
           <SidebarArea $sidebarOpen={sidebarOpen}>
             {loading ? 'Загрузка...' : <Sidebar />}
