@@ -9,6 +9,7 @@ export interface FsNode {
   children?: FsNode[]; // only for folders
   mime?: string; // for files, optional
   url?: string; // for files, optional (s3 url)
+  access?: number; // 0 = приватный, 1 = публичный
 }
 
 export interface User {
@@ -146,6 +147,7 @@ type ApiNode = {
   name: string;
   type: 'file' | 'folder';
   s3_url?: string;
+  access?: number | string; // может быть числом или строкой из API
   children?: ApiNode[];
 };
 
@@ -155,6 +157,7 @@ function mapApiToFs(node: ApiNode): FsNode {
     name: node.name,
     type: node.type,
     url: node.s3_url,
+    access: node.access !== undefined ? Number(node.access) : undefined,
     children: node.children?.map(mapApiToFs)
   };
   
@@ -360,6 +363,40 @@ export const renameFileAPI = createAsyncThunk(
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error((data && data.message) || 'Ошибка переименования файла');
+      }
+      dispatch(fetchTree());
+      return await res.json();
+    } catch (e: any) {
+      return rejectWithValue(e.message || 'Ошибка');
+    }
+  }
+);
+
+// Изменение уровня доступа файла через API PUT /api/v2/update_file/{uuid}
+export const updateFileAccessAPI = createAsyncThunk(
+  'fs/updateFileAccessAPI',
+  async (
+    { uuid, access }: { uuid: string; access: 0 | 1 },
+    { dispatch, rejectWithValue, getState }
+  ) => {
+    // Проверяем авторизацию
+    const state = getState() as { fs: FsState };
+    if (!state.fs.auth.isAuthenticated || !state.fs.auth.token) {
+      return rejectWithValue('Требуется авторизация для изменения уровня доступа');
+    }
+    
+    try {
+      const res = await fetch(
+        `https://api.alephtrade.com/backend_wiki/api/v2/update_file/${uuid}`,
+        {
+          method: 'PATCH',
+          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ access })
+        }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error((data && data.message) || 'Ошибка изменения уровня доступа');
       }
       dispatch(fetchTree());
       return await res.json();

@@ -9,6 +9,7 @@ import html2canvas from 'html2canvas';
 import downloadIcon from '/icon/download_15545982.png';
 import deleteIcon from '/icon/dustbin_14492622.png';
 import editIcon from '/icon/edit.svg';
+import keyIcon from '/icon/key.png';
 import bigLogo from '/icon/big_logo.png';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from '@/store/store';
@@ -16,6 +17,7 @@ import {
   deleteFileAPI,
   deleteFolderAPI,
   renameFileAPI,
+  updateFileAccessAPI,
   selectFile,
   selectFolder,
 } from '@/store/fsSlice';
@@ -249,7 +251,7 @@ const ActionBtn = styled.button`
   border-radius: 4px;
   background: ${({ theme }) => theme.colors.surfaceAlt};
   color: ${({ theme }) => theme.colors.text};
-  border: 1px solid ${({ theme }) => theme.colors.border};
+  border: none;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -261,11 +263,10 @@ const ActionBtn = styled.button`
   user-select: none;
   
   &:hover {
-    background: ${({ theme }) => theme.colors.surface};
-    border-color: ${({ theme }) => theme.colors.primary};
+    background: ${({ theme }) => theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'};
   }
   &:active {
-    opacity: 0.9;
+    opacity: 0.8;
   }
   
   /* Мобильные устройства */
@@ -379,6 +380,27 @@ const RootLogo = styled.img`
   width: 200px;
   height: auto;
   margin-bottom: 12px;
+  animation: logoAppear 1.2s ease-out forwards, logoPulse 3s ease-in-out 1.5s infinite;
+  
+  @keyframes logoAppear {
+    0% {
+      opacity: 0;
+      transform: scale(0.85) translateY(15px);
+    }
+    100% {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+  
+  @keyframes logoPulse {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.025);
+    }
+  }
   
   @media (max-width: 768px) {
     width: 150px;
@@ -836,6 +858,20 @@ export function Preview() {
     }
   };
 
+  const changeFileAccess = async () => {
+    if (!node?.id || isFolder) return;
+    const currentAccess = node.access !== undefined ? node.access : 1;
+    const newAccess: 0 | 1 = currentAccess === 0 ? 1 : 0;
+    const accessText = newAccess === 0 ? 'публичным' : 'приватным';
+    
+    if (window.confirm(`Изменить уровень доступа файла на ${accessText}?`)) {
+      const result = await dispatch(updateFileAccessAPI({ uuid: node.id, access: newAccess }));
+      if (updateFileAccessAPI.fulfilled.match(result)) {
+        // Дерево обновится автоматически через fetchTree в thunk
+      }
+    }
+  };
+
   const deleteFolder = async () => {
     if (!node?.id || node.id === 'root') return;
     if (window.confirm('Удалить папку со всем содержимым?')) {
@@ -941,22 +977,24 @@ export function Preview() {
         {auth.isAuthenticated && auth.token && (
           <>
             {!isFolder && (
-              <Tooltip text="Удалить файл">
-                <ActionBtn
-                  onClick={deleteFile}
-                  style={{ color: '#fff', background: '#8a8a8a', borderColor: '#8a8a8a' }}
-                >
-                  <Icon src={deleteIcon} alt="Удалить" />
-                  Удалить
-                </ActionBtn>
-              </Tooltip>
+              <>
+                <Tooltip text="Изменить уровень доступа">
+                  <ActionBtn onClick={changeFileAccess}>
+                    <Icon src={keyIcon} alt="Изменить доступ" />
+                    Доступ
+                  </ActionBtn>
+                </Tooltip>
+                <Tooltip text="Удалить файл">
+                  <ActionBtn onClick={deleteFile}>
+                    <Icon src={deleteIcon} alt="Удалить" />
+                    Удалить
+                  </ActionBtn>
+                </Tooltip>
+              </>
             )}
             {isFolder && node.id !== 'root' && (
               <Tooltip text="Удалить папку">
-                <ActionBtn
-                  onClick={deleteFolder}
-                  style={{ color: '#fff', background: '#8a8a8a', borderColor: '#8a8a8a' }}
-                >
+                <ActionBtn onClick={deleteFolder}>
                   <Icon src={deleteIcon} alt="Удалить папку" />
                   Удалить папку
                 </ActionBtn>

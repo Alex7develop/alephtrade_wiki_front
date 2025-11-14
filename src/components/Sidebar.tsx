@@ -5,6 +5,8 @@ import { selectFolder, selectFile, moveNodeAPI, renameFileAPI } from '@/store/fs
 import type { RootState } from '@/store/store';
 import fileIcon from '/icon/icons8-файл.svg';
 import folderIcon from '/icon/folder.png';
+import lockIcon from '/icon/zamok.png';
+// import publicIcon from '/icon/open_zamok.png';
 
 const TreeWrap = styled.div`
   padding: 12px;
@@ -90,11 +92,22 @@ const Icon = styled.img`
   filter: ${({ theme }) => theme.mode === 'dark' ? 'brightness(0) invert(1)' : 'none'};
 `;
 
+const AccessIndicator = styled.img`
+  width: 14px;
+  height: 14px;
+  margin-left: 6px;
+  opacity: 0.7;
+  display: inline-block;
+  flex-shrink: 0;
+`;
+
 const Name = styled.span`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   flex: 1;
+  display: flex;
+  align-items: center;
 `;
 
 const EditInput = styled.input`
@@ -275,7 +288,15 @@ function TreeNode({
             autoFocus
           />
         ) : (
-          <Name>{node.name}</Name>
+          <Name>
+            {node.name}
+            {/* {node.access !== undefined && node.access === 0 && (
+              <AccessIndicator src={publicIcon} alt="Публичный документ" title="Публичный документ" />
+            )} */}
+            {node.access !== undefined && node.access === 1 && (
+              <AccessIndicator src={lockIcon} alt="Приватный документ" title="Приватный документ" />
+            )}
+          </Name>
         )}
       </ItemRow>
       {isFolder && isExpanded && (node.children ?? [])

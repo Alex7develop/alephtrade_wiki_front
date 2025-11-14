@@ -13,7 +13,7 @@ import { AuthModal } from '@/components/AuthModal';
 const Layout = styled.div`
   display: grid;
   grid-template-rows: 56px 1fr;
-  grid-template-columns: 300px 1fr;
+  grid-template-columns: 380px 1fr;
   grid-template-areas:
     'header header'
     'sidebar content';

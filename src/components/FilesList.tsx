@@ -5,6 +5,9 @@ import type { RootState } from '@/store/store';
 import { selectFile, selectFolder, moveNodeAPI } from '@/store/fsSlice';
 import { renameFileAPI } from '@/store/fsSlice';
 import folderIcon from '/icon/folder.png';
+import lockIcon from '/icon/zamok.png';
+import fileIcon from '/icon/icons8-файл.svg';
+// import publicIcon from '/icon/open_zamok.png';
 
 const Wrap = styled.div`
   padding: 16px;
@@ -98,6 +101,15 @@ const Title = styled.div`
   gap: 8px;
   min-width: 0;
   flex: 1;
+`;
+
+const AccessIndicator = styled.img`
+  width: 14px;
+  height: 14px;
+  margin-left: 6px;
+  opacity: 0.7;
+  display: inline-block;
+  flex-shrink: 0;
 `;
 
 const ItemIcon = styled.img`
@@ -264,6 +276,10 @@ export function FilesList() {
   function renderItemIcon(item: any) {
     if (item.type === 'folder') {
       return <ItemIcon src={folderIcon} alt="Папка" />;
+    }
+    // Для markdown файлов используем SVG иконку
+    if (item.mime === 'text/markdown') {
+      return <ItemIcon src={fileIcon} alt="Файл" />;
     }
     return <EmojiIcon>{getFileIcon(item.mime)}</EmojiIcon>;
   }
@@ -555,6 +571,12 @@ export function FilesList() {
             <Title>
               {renderItemIcon(f)}
               {f.name}
+              {/* {f.access !== undefined && f.access === 0 && (
+                <AccessIndicator src={publicIcon} alt="Публичный документ" title="Публичный документ" />
+              )} */}
+              {f.access !== undefined && f.access === 1 && (
+                <AccessIndicator src={lockIcon} alt="Приватный документ" title="Приватный документ" />
+              )}
             </Title>
           )}
           <Type>{f.type === 'folder' ? 'папка' : getTypeLabel(f.mime)}</Type>

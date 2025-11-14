@@ -532,6 +532,7 @@ const MenuButton = styled.button`
   @media (max-width: 480px) {
     width: 30px;
     height: 30px;
+    display: none;
   }
 `;
 
