@@ -39,7 +39,7 @@ const Toolbar = styled.div`
   display: flex;
   gap: 10px;
   align-items: center;
-  padding: 12px 16px;
+  padding: 12px 38px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.surface};
   position: sticky;
@@ -296,7 +296,7 @@ const Body = styled.div`
   height: 100%;
   overflow: auto;
   overflow-x: hidden;
-  background: ${({ theme }) => theme.colors.surface};
+  background: ${({ theme }) => theme.mode === 'light' ? '#ffffff' : theme.colors.surface};
   -webkit-overflow-scrolling: touch;
   width: 100%;
   max-width: 100%;
@@ -446,7 +446,7 @@ const RootSubtitle = styled.p`
 const MdWrap = styled.div`
   height: 100%;
   overflow: auto;
-  background: ${({ theme }) => theme.colors.surface};
+  background: ${({ theme }) => theme.mode === 'light' ? '#ffffff' : theme.colors.surface};
   border-radius: ${({ theme }) => theme.radius.sm};
   // border: 1px solid ${({ theme }) => theme.colors.border};
   padding: 3px;
@@ -553,7 +553,7 @@ export function Preview() {
             const baseHref = (node.url || '').replace(/([^/]+)$/, ''); // directory of the file
             const themedStyles = `
               <style>
-                body { margin: 0; font: 14px/1.6 -apple-system, Segoe UI, Roboto, Inter, Arial; color: ${theme.colors.text}; background: ${theme.colors.surfaceAlt}; }
+                body { margin: 0; font: 14px/1.6 -apple-system, Segoe UI, Roboto, Inter, Arial; color: ${theme.colors.text}; background: ${theme.mode === 'light' ? '#ffffff' : theme.colors.surfaceAlt}; }
                 .container { padding: 16px; }
                 h1,h2,h3 { color: ${theme.colors.text}; }
                 a { color: ${theme.colors.primaryAccent}; text-decoration: none; }
@@ -600,7 +600,7 @@ export function Preview() {
       const baseHref = (node.url || '').replace(/([^/]+)$/, '');
       const themedStyles = `
         <style>
-          body { margin: 0; font: 14px/1.6 -apple-system, Segoe UI, Roboto, Inter, Arial; color: ${theme.colors.text}; background: ${theme.colors.surfaceAlt}; }
+          body { margin: 0; font: 14px/1.6 -apple-system, Segoe UI, Roboto, Inter, Arial; color: ${theme.colors.text}; background: ${theme.mode === 'light' ? '#ffffff' : theme.colors.surfaceAlt}; }
           .container { padding: 16px; }
           h1,h2,h3 { color: ${theme.colors.text}; }
           a { color: ${theme.colors.primaryAccent}; text-decoration: none; }
@@ -981,13 +981,13 @@ export function Preview() {
                 <Tooltip text="Изменить уровень доступа">
                   <ActionBtn onClick={changeFileAccess}>
                     <Icon src={keyIcon} alt="Изменить доступ" />
-                    Доступ
+                    
                   </ActionBtn>
                 </Tooltip>
                 <Tooltip text="Удалить файл">
                   <ActionBtn onClick={deleteFile}>
                     <Icon src={deleteIcon} alt="Удалить" />
-                    Удалить
+                    
                   </ActionBtn>
                 </Tooltip>
               </>
@@ -1006,7 +1006,7 @@ export function Preview() {
           <Tooltip text="Скачать как PDF">
             <ActionBtn onClick={downloadMd}>
               <Icon src={downloadIcon} alt="Скачать PDF" />
-              Скачать PDF
+              
             </ActionBtn>
           </Tooltip>
         )}
