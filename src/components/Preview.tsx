@@ -9,6 +9,7 @@ import html2canvas from 'html2canvas';
 import downloadIcon from '/icon/download_15545982.png';
 import deleteIcon from '/icon/dustbin_14492622.png';
 import editIcon from '/icon/edit.svg';
+import bigLogo from '/icon/big_logo.png';
 import { useDispatch, useSelector } from 'react-redux';
 import type { RootState } from '@/store/store';
 import {
@@ -361,6 +362,63 @@ const UnsupportedFile = styled.div`
   height: 200px;
   color: ${({ theme }) => theme.colors.textMuted};
   text-align: center;
+`;
+
+const RootWelcome = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 400px;
+  text-align: center;
+  padding: 40px 20px;
+`;
+
+const RootLogo = styled.img`
+  width: 200px;
+  height: auto;
+  margin-bottom: 12px;
+  
+  @media (max-width: 768px) {
+    width: 150px;
+    margin-bottom: 24px;
+  }
+  
+  @media (max-width: 480px) {
+    width: 120px;
+    margin-bottom: 20px;
+  }
+`;
+
+const RootTitle = styled.h1`
+  font-size: 32px;
+  font-weight: 600;
+  color: ${({ theme }) => theme.colors.text};
+  margin: 0 0 12px 0;
+  
+  @media (max-width: 768px) {
+    font-size: 28px;
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 24px;
+  }
+`;
+
+const RootSubtitle = styled.p`
+  font-size: 18px;
+  font-weight: 400;
+  color: ${({ theme }) => theme.colors.textMuted};
+  margin: 0;
+  
+  @media (max-width: 768px) {
+    font-size: 16px;
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 14px;
+  }
 `;
 
 const MdWrap = styled.div`
@@ -917,7 +975,14 @@ export function Preview() {
       </Toolbar>
       <Body>
         {isFolder ? (
-          <div>Папка содержит: {(node.children ?? []).length} элементов</div>
+          node.id === 'root' ? (
+            <RootWelcome>
+              <RootLogo src={bigLogo} alt="Логотип" />
+              <RootSubtitle>Ведущий поставщик чая, кофе и кофемашин в России</RootSubtitle>
+            </RootWelcome>
+          ) : (
+            <div>Папка содержит: {(node.children ?? []).length} элементов</div>
+          )
         ) : (
           <>
             {/* <FileInfo> Отображение блока с информацией о файле
