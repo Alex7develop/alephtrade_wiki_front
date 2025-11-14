@@ -7,12 +7,11 @@ import { sendSms, confirmSms, getUser, logout } from '../store/fsSlice';
 const ModalBg = styled.div`
   position: fixed;
   left: 0; top: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,.5);
+  background: rgba(0,0,0,.4);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
-  backdrop-filter: blur(4px);
   
   /* Мобильные устройства */
   @media (max-width: 768px) {
@@ -25,11 +24,12 @@ const ModalBg = styled.div`
 
 const Modal = styled.div`
   background: ${({ theme }) => theme.colors.surface};
-  border-radius: 12px;
-  padding: 24px;
+  border-radius: 6px;
+  padding: 20px;
   width: 400px;
   max-width: 90vw;
-  box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   position: relative;
   z-index: 2001;
   
@@ -37,8 +37,8 @@ const Modal = styled.div`
   @media (max-width: 768px) {
     width: 100%;
     max-width: calc(100vw - 32px);
-    padding: 20px;
-    border-radius: 16px;
+    padding: 16px;
+    border-radius: 6px;
   }
   
   @media (max-width: 480px) {
@@ -47,23 +47,53 @@ const Modal = styled.div`
   }
 `;
 
-const Title = styled.h2`
-  margin: 0 0 20px 0;
+const CloseButton = styled.button`
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.textMuted};
+  cursor: pointer;
   font-size: 20px;
-  font-weight: 600;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  
+  &:hover {
+    background: ${({ theme }) => theme.colors.surfaceAlt};
+    color: ${({ theme }) => theme.colors.text};
+  }
+  
+  &:active {
+    opacity: 0.8;
+  }
+`;
+
+const Title = styled.h2`
+  margin: 0 0 16px 0;
+  padding-right: 32px;
+  font-size: 16px;
+  font-weight: 500;
   color: ${({ theme }) => theme.colors.text};
 `;
 
 const Input = styled.input`
   width: 100%;
-  padding: 12px 16px;
+  padding: 8px 12px;
   border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 8px;
-  font-size: 16px;
+  border-radius: 4px;
+  font-size: 14px;
   background: ${({ theme }) => theme.colors.surfaceAlt};
   color: ${({ theme }) => theme.colors.text};
-  margin-bottom: 16px;
-  transition: border-color 0.2s ease;
+  margin-bottom: 12px;
+  transition: border-color 0.15s ease;
+  box-sizing: border-box;
   
   &:focus {
     outline: none;
@@ -77,28 +107,26 @@ const Input = styled.input`
 
 const Button = styled.button`
   width: 100%;
-  padding: 12px 16px;
-  border-radius: 8px;
+  padding: 8px 16px;
+  border-radius: 4px;
   background: ${({ theme }) => theme.colors.primary};
   color: #fff;
   border: none;
   cursor: pointer;
-  font-size: 16px;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  font-size: 13px;
+  font-weight: 400;
+  transition: background-color 0.15s ease;
   
   &:hover:not(:disabled) {
     background: ${({ theme }) => theme.colors.primaryAccent};
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(90,90,90,.2);
   }
   
-  &:active {
-    transform: translateY(0);
+  &:active:not(:disabled) {
+    opacity: 0.9;
   }
   
   &:disabled {
-    opacity: 0.6;
+    opacity: 0.5;
     cursor: not-allowed;
   }
 `;
@@ -173,22 +201,46 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   }, [auth.user, auth.isAuthenticated, onClose]);
 
   const formatPhone = (value: string) => {
+    // Удаляем все нецифровые символы
     const cleaned = value.replace(/\D/g, '');
-    if (cleaned.startsWith('7')) {
-      const match = cleaned.match(/^7(\d{0,3})(\d{0,3})(\d{0,2})(\d{0,2})$/);
+    
+    // Если начинается с 7 или 8, заменяем на 7
+    let phoneNumber = cleaned;
+    if (phoneNumber.startsWith('8')) {
+      phoneNumber = '7' + phoneNumber.slice(1);
+    } else if (!phoneNumber.startsWith('7') && phoneNumber.length > 0) {
+      // Если не начинается с 7 или 8, добавляем 7
+      phoneNumber = '7' + phoneNumber;
+    }
+    
+    // Форматируем номер
+    if (phoneNumber.startsWith('7')) {
+      const match = phoneNumber.match(/^7(\d{0,3})(\d{0,3})(\d{0,2})(\d{0,2})$/);
       if (match) {
         const [, a, b, c, d] = match;
-        return `+7 ${a ? `${a}` : ''}${b ? `-${b}` : ''}${c ? `-${c}` : ''}${d ? `-${d}` : ''}`;
+        let formatted = '+7';
+        if (a) formatted += ` ${a}`;
+        if (b) formatted += `-${b}`;
+        if (c) formatted += `-${c}`;
+        if (d) formatted += `-${d}`;
+        return formatted;
       }
     }
-    return value;
+    
+    // Если пусто, возвращаем +7
+    if (cleaned.length === 0) {
+      return '+7';
+    }
+    
+    return '+7 ' + phoneNumber.slice(1);
   };
 
   const handlePhoneSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (phone.length < 10) return;
-    
     const cleanPhone = phone.replace(/\D/g, '');
+    // Проверяем, что есть код страны (7) и минимум 10 цифр всего
+    if (cleanPhone.length < 11) return;
+    
     const phoneWithPrefix = cleanPhone.startsWith('7') ? `+${cleanPhone}` : `+7${cleanPhone}`;
     const result = await dispatch(sendSms(phoneWithPrefix));
     
@@ -221,13 +273,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   };
 
   const handleClose = () => {
-    // Не позволяем закрыть модальное окно, если пользователь не авторизован
-    if (auth.isAuthenticated) {
-      setStep('phone');
-      setPhone('');
-      setCode('');
-      onClose();
-    }
+    // Позволяем закрыть модальное окно в любой момент
+    setStep('phone');
+    setPhone('');
+    setCode('');
+    onClose();
   };
 
   if (!isOpen) return null;
@@ -235,6 +285,15 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   return (
     <ModalBg onClick={handleClose}>
       <Modal onClick={(e) => e.stopPropagation()}>
+        <CloseButton 
+          onClick={(e) => {
+            e.stopPropagation();
+            handleClose();
+          }} 
+          title="Закрыть"
+        >
+          ×
+        </CloseButton>
         {step === 'phone' && (
           <>
             <Title>Вход в систему</Title>
@@ -243,10 +302,25 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 type="tel"
                 placeholder="+7 ___-___-__-__"
                 value={phone}
-                onChange={(e) => setPhone(formatPhone(e.target.value))}
+                onChange={(e) => {
+                  const newValue = e.target.value;
+                  // Если поле пустое или начинается с +7, форматируем
+                  if (newValue.length === 0 || newValue.startsWith('+7')) {
+                    setPhone(formatPhone(newValue));
+                  } else {
+                    // Если пользователь удалил +7, добавляем обратно
+                    setPhone(formatPhone(newValue));
+                  }
+                }}
+                onFocus={(e) => {
+                  // При фокусе, если поле пустое или не начинается с +7, устанавливаем +7
+                  if (!e.target.value || !e.target.value.startsWith('+7')) {
+                    setPhone('+7');
+                  }
+                }}
                 maxLength={18}
               />
-              <Button type="submit" disabled={auth.loading || phone.length < 10}>
+              <Button type="submit" disabled={auth.loading || phone.replace(/\D/g, '').length < 11}>
                 {auth.loading ? 'Отправка...' : 'Отправить код'}
               </Button>
               {auth.error && <Error>{auth.error}</Error>}
@@ -256,7 +330,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
         {step === 'code' && (
           <>
-            <BackButton onClick={() => setStep('phone')}>
+            <BackButton onClick={() => {
+              setStep('phone');
+              setCode('');
+            }}>
               ← Назад
             </BackButton>
             <Title>Введите код</Title>
@@ -292,3 +369,4 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
     </ModalBg>
   );
 };
+

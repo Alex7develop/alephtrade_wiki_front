@@ -1,7 +1,8 @@
 import styled from 'styled-components';
 import { useDispatch, useSelector } from 'react-redux';
+import { useParams, useNavigate, Routes, Route } from 'react-router-dom';
 import type { RootState } from '@/store/store';
-import { fetchTree, getUser } from '@/store/fsSlice';
+import { fetchTree, getUser, selectFile, selectFolder } from '@/store/fsSlice';
 import { useEffect, useState } from 'react';
 import { Header } from '@/components/Header';
 import { Sidebar } from '@/components/Sidebar';
@@ -11,8 +12,8 @@ import { AuthModal } from '@/components/AuthModal';
 
 const Layout = styled.div`
   display: grid;
-  grid-template-rows: 60px 1fr;
-  grid-template-columns: 460px 1fr;
+  grid-template-rows: 56px 1fr;
+  grid-template-columns: 300px 1fr;
   grid-template-areas:
     'header header'
     'sidebar content';
@@ -28,7 +29,7 @@ const Layout = styled.div`
 
   /* Мобильные устройства */
   @media (max-width: 768px) {
-    grid-template-rows: 60px 1fr;
+    grid-template-rows: 56px 1fr;
     grid-template-columns: 1fr;
     grid-template-areas:
       'header'
@@ -47,7 +48,6 @@ const HeaderArea = styled.header`
   grid-area: header;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.surface};
-  box-shadow: 0 1px 3px rgba(0,0,0,.05);
   width: 100%;
   max-width: 100%;
   overflow: hidden;
@@ -64,14 +64,14 @@ const SidebarArea = styled.aside<{ $sidebarOpen: boolean }>`
   /* Мобильные устройства */
   @media (max-width: 768px) {
     position: fixed;
-    top: 60px;
+    top: 56px;
     left: 0;
     width: 280px;
-    height: calc(100vh - 60px);
+    height: calc(100vh - 56px);
     z-index: 1000;
     transform: ${({ $sidebarOpen }) => $sidebarOpen ? 'translateX(0)' : 'translateX(-100%)'};
-    transition: transform 0.3s ease;
-    box-shadow: 2px 0 8px rgba(0,0,0,.1);
+    transition: transform 0.2s ease;
+    box-shadow: 1px 0 4px rgba(0,0,0,.08);
   }
 
   /* Очень маленькие экраны */
@@ -120,9 +120,37 @@ const MobileOverlay = styled.div<{ $sidebarOpen: boolean }>`
   }
 `;
 
+// Функция для поиска файла по UUID в дереве
+function findFileById(node: any, fileId: string): any | null {
+  if (node.id === fileId && node.type === 'file') {
+    return node;
+  }
+  if (node.children) {
+    for (const child of node.children) {
+      const found = findFileById(child, fileId);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+// Функция для поиска родительской папки файла
+function findParentFolderForFile(node: any, fileId: string, parent: any = null): any | null {
+  if (node.id === fileId) return parent;
+  if (node.children) {
+    for (const child of node.children) {
+      const found = findParentFolderForFile(child, fileId, node);
+      if (found !== null) return found;
+    }
+  }
+  return null;
+}
+
 export default function App() {
   const dispatch = useDispatch();
-  const { loading, error, auth } = useSelector((s: RootState) => s.fs);
+  const navigate = useNavigate();
+  const { uuid } = useParams<{ uuid?: string }>();
+  const { loading, error, auth, root, selectedFileId, selectedFolderId } = useSelector((s: RootState) => s.fs);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // Проверяем наличие токена при загрузке
@@ -241,6 +269,63 @@ export default function App() {
     }
   }, [auth.token, auth.user, dispatch]);
 
+  // Обрабатываем UUID из URL при загрузке дерева
+  useEffect(() => {
+    if (uuid && hasLoadedTree && root && root.children && root.children.length > 0) {
+      const file = findFileById(root, uuid);
+      if (file && file.type === 'file') {
+        // Находим родительскую папку и открываем её
+        const parentFolder = findParentFolderForFile(root, uuid);
+        if (parentFolder) {
+          dispatch(selectFolder(parentFolder.id));
+        }
+        // Выбираем файл только если он еще не выбран
+        if (selectedFileId !== uuid) {
+          dispatch(selectFile(uuid));
+        }
+      }
+    }
+  }, [uuid, hasLoadedTree, root, dispatch, selectedFileId]);
+
+  // Синхронизируем URL при изменении selectedFileId или selectedFolderId
+  useEffect(() => {
+    if (!hasLoadedTree) return;
+    
+    // Проверяем, есть ли выбранный файл (не null и не пустая строка)
+    const hasFileId = selectedFileId !== null && 
+                      selectedFileId !== undefined && 
+                      typeof selectedFileId === 'string' && 
+                      selectedFileId.trim() !== '';
+    
+    if (hasFileId) {
+      // Если файл выбран и URL не совпадает - обновляем URL
+      if (selectedFileId !== uuid) {
+        navigate(`/${selectedFileId}`, { replace: true });
+      }
+    } else {
+      // Если файл не выбран (выбрана папка или файл сброшен), но в URL есть UUID - очищаем URL
+      // Это происходит когда пользователь кликает на папку (selectFolder устанавливает selectedFileId = null)
+      if (uuid) {
+        navigate('/', { replace: true });
+      }
+    }
+  }, [selectedFileId, uuid, hasLoadedTree, navigate]);
+  
+  // Дополнительная проверка: если выбранная папка изменилась и файл не выбран - очищаем URL
+  useEffect(() => {
+    if (!hasLoadedTree) return;
+    
+    const hasFileId = selectedFileId !== null && 
+                      selectedFileId !== undefined && 
+                      typeof selectedFileId === 'string' && 
+                      selectedFileId.trim() !== '';
+    
+    // Если папка выбрана, но файл не выбран, и в URL есть UUID - очищаем URL
+    if (selectedFolderId && !hasFileId && uuid) {
+      navigate('/', { replace: true });
+    }
+  }, [selectedFolderId, selectedFileId, uuid, hasLoadedTree, navigate]);
+
   // Функция для открытия модального окна загрузки
   // Передадим эту функцию через ref или создадим контекст
   // Пока что создадим простой способ через событие или состояние
@@ -248,50 +333,51 @@ export default function App() {
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   return (
-    <Layout>
-      <HeaderArea>
-        <Header 
-          sidebarOpen={sidebarOpen} 
-          setSidebarOpen={setSidebarOpen}
-          uploadOpen={showUploadModal}
-          setUploadOpen={setShowUploadModal}
-          authOpen={showAuthModal}
-          setAuthOpen={setShowAuthModal}
-        />
-      </HeaderArea>
-      <MobileOverlay $sidebarOpen={sidebarOpen} onClick={() => setSidebarOpen(false)} />
-      {/* Показываем контент если дерево загружено (для авторизованных и неавторизованных) */}
-      {hasLoadedTree && (
-        <>
-          <SidebarArea $sidebarOpen={sidebarOpen}>
-            {loading ? 'Загрузка...' : <Sidebar />}
-          </SidebarArea>
-          <ContentArea>
-            {error ? (
-              <div style={{ padding: 24, color: '#f88', textAlign: 'center' }}>
-                Ошибка: {error}
-              </div>
-            ) : (
-              <Preview />
-            )}
-          </ContentArea>
-        </>
-      )}
-      <MobileBottomNav 
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-        onUploadClick={() => setShowUploadModal(true)}
-      />
-      <AuthModal 
-        isOpen={showAuthModal} 
-        onClose={() => {
-          // Автоматически закрываем модальное окно после успешной авторизации
-          if (auth.isAuthenticated) {
-            setShowAuthModal(false);
-          }
-        }} 
-      />
-    </Layout>
+    <Routes>
+      <Route path="/:uuid?" element={
+        <Layout>
+          <HeaderArea>
+            <Header 
+              sidebarOpen={sidebarOpen} 
+              setSidebarOpen={setSidebarOpen}
+              uploadOpen={showUploadModal}
+              setUploadOpen={setShowUploadModal}
+              authOpen={showAuthModal}
+              setAuthOpen={setShowAuthModal}
+            />
+          </HeaderArea>
+          <MobileOverlay $sidebarOpen={sidebarOpen} onClick={() => setSidebarOpen(false)} />
+          {/* Показываем контент если дерево загружено (для авторизованных и неавторизованных) */}
+          {hasLoadedTree && (
+            <>
+              <SidebarArea $sidebarOpen={sidebarOpen}>
+                {loading ? 'Загрузка...' : <Sidebar />}
+              </SidebarArea>
+              <ContentArea>
+                {error ? (
+                  <div style={{ padding: 24, color: '#f88', textAlign: 'center' }}>
+                    Ошибка: {error}
+                  </div>
+                ) : (
+                  <Preview />
+                )}
+              </ContentArea>
+            </>
+          )}
+          <MobileBottomNav 
+            sidebarOpen={sidebarOpen}
+            setSidebarOpen={setSidebarOpen}
+            onUploadClick={() => setShowUploadModal(true)}
+          />
+          <AuthModal 
+            isOpen={showAuthModal} 
+            onClose={() => {
+              setShowAuthModal(false);
+            }} 
+          />
+        </Layout>
+      } />
+    </Routes>
   );
 }
 

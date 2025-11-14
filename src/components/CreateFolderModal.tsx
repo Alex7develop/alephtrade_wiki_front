@@ -7,12 +7,11 @@ import { createFolderAPI } from '../store/fsSlice';
 const ModalBg = styled.div`
   position: fixed;
   left: 0; top: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,.5);
+  background: rgba(0,0,0,.4);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 2000;
-  backdrop-filter: blur(4px);
   
   /* Мобильные устройства */
   @media (max-width: 768px) {
@@ -25,11 +24,12 @@ const ModalBg = styled.div`
 
 const Modal = styled.div`
   background: ${({ theme }) => theme.colors.surface};
-  border-radius: 12px;
-  padding: 24px;
+  border-radius: 6px;
+  padding: 20px;
   width: 400px;
   max-width: 90vw;
-  box-shadow: 0 8px 32px rgba(0,0,0,.2);
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  border: 1px solid ${({ theme }) => theme.colors.border};
   position: relative;
   z-index: 2001;
   
@@ -37,8 +37,8 @@ const Modal = styled.div`
   @media (max-width: 768px) {
     width: 100%;
     max-width: calc(100vw - 32px);
-    padding: 20px;
-    border-radius: 16px;
+    padding: 16px;
+    border-radius: 6px;
   }
   
   @media (max-width: 480px) {
@@ -48,22 +48,22 @@ const Modal = styled.div`
 `;
 
 const Title = styled.h2`
-  margin: 0 0 20px 0;
-  font-size: 20px;
-  font-weight: 600;
+  margin: 0 0 16px 0;
+  font-size: 16px;
+  font-weight: 500;
   color: ${({ theme }) => theme.colors.text};
 `;
 
 const Input = styled.input`
   width: 100%;
-  padding: 12px 16px;
+  padding: 8px 12px;
   border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 8px;
-  font-size: 16px;
+  border-radius: 4px;
+  font-size: 14px;
   background: ${({ theme }) => theme.colors.surfaceAlt};
   color: ${({ theme }) => theme.colors.text};
-  margin-bottom: 16px;
-  transition: border-color 0.2s ease;
+  margin-bottom: 12px;
+  transition: border-color 0.15s ease;
   box-sizing: border-box;
   
   &:focus {
@@ -78,14 +78,14 @@ const Input = styled.input`
 
 const Select = styled.select`
   width: 100%;
-  padding: 12px 16px;
+  padding: 8px 12px;
   border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 8px;
-  font-size: 16px;
+  border-radius: 4px;
+  font-size: 14px;
   background: ${({ theme }) => theme.colors.surfaceAlt};
   color: ${({ theme }) => theme.colors.text};
-  margin-bottom: 16px;
-  transition: border-color 0.2s ease;
+  margin-bottom: 12px;
+  transition: border-color 0.15s ease;
   box-sizing: border-box;
   cursor: pointer;
   
@@ -96,59 +96,62 @@ const Select = styled.select`
 `;
 
 const Button = styled.button`
-  width: 100%;
-  padding: 12px 16px;
-  border-radius: 8px;
+  flex: 1;
+  padding: 8px 16px;
+  border-radius: 4px;
   background: ${({ theme }) => theme.colors.primary};
   color: #fff;
   border: none;
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 400;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease;
   
   &:hover:not(:disabled) {
     background: ${({ theme }) => theme.colors.primaryAccent};
-    transform: translateY(-1px);
   }
   
   &:active:not(:disabled) {
-    transform: translateY(0);
+    opacity: 0.9;
   }
   
   &:disabled {
-    opacity: 0.6;
+    opacity: 0.5;
     cursor: not-allowed;
   }
 `;
 
 const Error = styled.div`
-  color: #f88;
-  font-size: 14px;
+  color: ${({ theme }) => theme.colors.danger};
+  font-size: 13px;
   margin-top: 8px;
   text-align: center;
 `;
 
 const ButtonGroup = styled.div`
   display: flex;
-  gap: 12px;
+  gap: 8px;
   margin-top: 8px;
 `;
 
 const CancelButton = styled.button`
   flex: 1;
-  padding: 12px 16px;
-  border-radius: 8px;
+  padding: 8px 16px;
+  border-radius: 4px;
   background: ${({ theme }) => theme.colors.surfaceAlt};
   color: ${({ theme }) => theme.colors.text};
   border: 1px solid ${({ theme }) => theme.colors.border};
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 400;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease;
   
   &:hover {
-    background: ${({ theme }) => theme.colors.border};
+    background: ${({ theme }) => theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'};
+  }
+  
+  &:active {
+    opacity: 0.8;
   }
 `;
 
@@ -211,7 +214,7 @@ export const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
   return (
     <ModalBg onClick={handleClose}>
       <Modal onClick={(e) => e.stopPropagation()}>
-        <Title>Создать папку</Title>
+        <Title>Укажите название папки</Title>
         <form onSubmit={handleSubmit}>
           <Input
             type="text"

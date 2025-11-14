@@ -4,9 +4,10 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import type { RootState } from '@/store/store';
 import { selectFile, selectFolder, moveNodeAPI } from '@/store/fsSlice';
 import { renameFileAPI } from '@/store/fsSlice';
+import folderIcon from '/icon/folder.png';
 
 const Wrap = styled.div`
-  padding: 20px;
+  padding: 16px;
   background: ${({ theme }) => theme.colors.surface};
   height: 100%;
   overflow-y: auto;
@@ -18,7 +19,7 @@ const Wrap = styled.div`
   /* Мобильные устройства */
   @media (max-width: 768px) {
     padding: 12px;
-    padding-bottom: 80px; /* Место для bottom navigation */
+    padding-bottom: 80px;
   }
   
   @media (max-width: 480px) {
@@ -31,22 +32,21 @@ const Row = styled.div<{ selected?: boolean; $dragging?: boolean }>`
   display: grid;
   grid-template-columns: 1fr 100px;
   align-items: center;
-  min-height: 48px;
+  min-height: 40px;
   height: auto;
-  padding: 12px 16px;
+  padding: 8px 12px;
   border-radius: ${({ theme }) => theme.radius.sm};
   cursor: pointer;
-  background: ${({ selected, theme }) => (selected ? theme.colors.primary : theme.colors.surface)};
-  color: ${({ selected, theme }) => (selected ? '#fff' : theme.colors.text)};
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  margin-bottom: 8px;
-  border: 1px solid ${({ theme, selected }) => selected ? 'transparent' : theme.colors.border};
-  box-shadow: ${({ $dragging, selected, theme }) => 
-    $dragging ? `0 4px 12px rgba(0,0,0,0.15)` : 
-    selected ? `0 2px 8px rgba(0,0,0,0.1)` : 
-    `0 1px 3px rgba(0,0,0,0.05)`};
+  background: ${({ selected, theme }) => 
+    selected 
+      ? (theme.mode === 'dark' ? 'rgba(0, 102, 255, 0.15)' : 'rgba(0, 102, 255, 0.08)')
+      : theme.colors.surface};
+  color: ${({ theme }) => theme.colors.text};
+  font-size: 13px;
+  font-weight: 400;
+  transition: background-color 0.15s ease;
+  margin-bottom: 4px;
+  border: 1px solid ${({ theme, selected }) => selected ? theme.colors.primary : theme.colors.border};
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   width: 100%;
@@ -54,16 +54,14 @@ const Row = styled.div<{ selected?: boolean; $dragging?: boolean }>`
   min-width: 0;
   
   &:hover { 
-    background: ${({ selected, theme }) => (selected ? theme.colors.primary : theme.colors.surfaceAlt)};
-    transform: translateY(-1px);
-    box-shadow: ${({ selected, theme }) => selected ? 
-      `0 2px 8px rgba(0,0,0,0.15)` : 
-      `0 4px 12px rgba(0,0,0,0.1)`};
+    background: ${({ selected, theme }) => 
+      selected 
+        ? (theme.mode === 'dark' ? 'rgba(0, 102, 255, 0.2)' : 'rgba(0, 102, 255, 0.12)')
+        : theme.colors.surfaceAlt};
   }
   
   &:active {
-    transform: scale(0.98);
-    box-shadow: ${({ theme }) => `0 2px 4px rgba(0,0,0,0.1)`};
+    opacity: 0.9;
   }
   
   /* Мобильные устройства - увеличенные touch targets */
@@ -102,18 +100,30 @@ const Title = styled.div`
   flex: 1;
 `;
 
+const ItemIcon = styled.img`
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  filter: ${({ theme }) => theme.mode === 'dark' ? 'brightness(0) invert(1)' : 'none'};
+`;
+
+const EmojiIcon = styled.span`
+  font-size: 14px;
+  flex-shrink: 0;
+`;
+
 const Type = styled.div`
   justify-self: end;
   color: ${({ theme }) => theme.colors.textMuted};
   background: ${({ theme }) => theme.colors.surfaceAlt};
   border: 1px solid ${({ theme }) => theme.colors.border};
-  height: 24px;
+  height: 22px;
   padding: 0 8px;
   display: inline-flex;
   align-items: center;
-  border-radius: 6px;
+  border-radius: 4px;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 400;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -251,13 +261,12 @@ export function FilesList() {
     return '📄';
   }
   
-  function getItemIcon(item: any): string {
+  function renderItemIcon(item: any) {
     if (item.type === 'folder') {
-      return '📁';
+      return <ItemIcon src={folderIcon} alt="Папка" />;
     }
-    return getFileIcon(item.mime);
+    return <EmojiIcon>{getFileIcon(item.mime)}</EmojiIcon>;
   }
-
   const inputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
     if (editingId && inputRef.current) {
@@ -321,7 +330,7 @@ export function FilesList() {
       {filtered.map((f: any) => (
         <Row
           key={f.id}
-          selected={f.type === 'folder' ? selectedFolderId === f.id : selectedFileId === f.id}
+          selected={f.type === 'file' ? selectedFileId === f.id : false}
           $dragging={draggingId === f.id}
           style={{
             boxShadow: draggingId === f.id ? '0 0 8px #3178ff' :
@@ -544,7 +553,7 @@ export function FilesList() {
             />
           ) : (
             <Title>
-              <span>{getItemIcon(f)}</span>
+              {renderItemIcon(f)}
               {f.name}
             </Title>
           )}

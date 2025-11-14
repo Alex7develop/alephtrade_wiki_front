@@ -4,9 +4,10 @@ import { useMemo, useState, useRef, useEffect } from 'react';
 import { selectFolder, selectFile, moveNodeAPI, renameFileAPI } from '@/store/fsSlice';
 import type { RootState } from '@/store/store';
 import fileIcon from '/icon/icons8-файл.svg';
+import folderIcon from '/icon/folder.png';
 
 const TreeWrap = styled.div`
-  padding: 16px;
+  padding: 12px;
   background: ${({ theme }) => theme.colors.surface};
   border-right: 1px solid ${({ theme }) => theme.colors.border};
   height: 100%;
@@ -19,7 +20,7 @@ const TreeWrap = styled.div`
   
   /* Мобильные устройства */
   @media (max-width: 768px) {
-    padding: 12px;
+    padding: 10px;
     width: 100%;
   }
   
@@ -31,29 +32,33 @@ const TreeWrap = styled.div`
 const ItemRow = styled.div<{ selected?: boolean }>`
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-height: 36px;
+  gap: 8px;
+  min-height: 32px;
   height: auto;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: ${({ theme }) => theme.radius.sm};
   cursor: pointer;
   color: ${({ theme }) => theme.colors.text};
-  background: ${({ selected, theme }) => (selected ? theme.colors.primary : 'transparent')};
-  color: ${({ selected, theme }) => (selected ? '#fff' : theme.colors.text)};
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
-  margin-bottom: 4px;
+  background: ${({ selected, theme }) => 
+    selected 
+      ? (theme.mode === 'dark' ? 'rgba(0, 102, 255, 0.15)' : 'rgba(0, 102, 255, 0.08)')
+      : 'transparent'};
+  font-size: 13px;
+  font-weight: 400;
+  transition: background-color 0.15s ease;
+  margin-bottom: 2px;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   
   &:hover { 
-    background: ${({ selected, theme }) => (selected ? theme.colors.primary : theme.colors.surfaceAlt)};
-    transform: translateX(2px);
+    background: ${({ selected, theme }) => 
+      selected 
+        ? (theme.mode === 'dark' ? 'rgba(0, 102, 255, 0.2)' : 'rgba(0, 102, 255, 0.12)')
+        : theme.colors.surfaceAlt};
   }
   
   &:active {
-    transform: scale(0.98);
+    opacity: 0.8;
   }
   
   /* Мобильные устройства - увеличенные touch targets */
@@ -94,20 +99,19 @@ const Name = styled.span`
 
 const EditInput = styled.input`
   flex: 1;
-  height: 28px;
-  border-radius: 6px;
+  height: 26px;
+  border-radius: 4px;
   border: 1px solid ${({ theme }) => theme.colors.primary};
   background: ${({ theme }) => theme.colors.surface};
   color: ${({ theme }) => theme.colors.text};
   padding: 0 8px;
   outline: none;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 400;
   min-width: 0;
   
   &:focus {
     border-color: ${({ theme }) => theme.colors.primary};
-    box-shadow: 0 0 0 2px rgba(90,90,90,0.1);
   }
 `;
 
@@ -117,6 +121,18 @@ function getFileIcon(mime?: string): JSX.Element {
 
 function matches(query: string, name: string) {
   return name.toLowerCase().includes(query.trim().toLowerCase());
+}
+
+// Функция для поиска родительской папки файла
+function findParentFolder(root: any, fileId: string, parent: any = null): any | null {
+  if (root.id === fileId) return parent;
+  if (root.children) {
+    for (const child of root.children) {
+      const found = findParentFolder(child, fileId, root);
+      if (found !== null) return found;
+    }
+  }
+  return null;
 }
 
 function TreeNode({ 
@@ -130,7 +146,8 @@ function TreeNode({
   setEditingValue,
   commitRename,
   inputRef,
-  isAuthenticated
+  isAuthenticated,
+  root
 }: { 
   node: any; 
   level: number; 
@@ -143,6 +160,7 @@ function TreeNode({
   commitRename: (id: string) => void;
   inputRef: React.RefObject<HTMLInputElement>;
   isAuthenticated: boolean;
+  root: any;
 }) {
   const dispatch: any = useDispatch();
   const selectedFolderId = useSelector((s: RootState) => s.fs.selectedFolderId);
@@ -152,7 +170,26 @@ function TreeNode({
   const isFolder = node.type === 'folder';
 
   const isExpanded = expanded.has(node.id);
-  const isSelected = isFolder ? selectedFolderId === node.id : selectedFileId === node.id;
+  
+  // Логика выделения: 
+  // - Если выбран файл: выделяем ТОЛЬКО родительскую папку этого файла
+  // - Если файл НЕ выбран: выделяем папку по selectedFolderId
+  // - Файлы в сайдбаре никогда не выделяются
+  let isSelected = false;
+  if (isFolder) {
+    if (selectedFileId) {
+      // Если выбран файл, выделяем только родительскую папку этого файла
+      const parentFolder = findParentFolder(root, selectedFileId);
+      isSelected = parentFolder && parentFolder.id === node.id;
+    } else {
+      // Если файл не выбран, выделяем папку по selectedFolderId
+      isSelected = selectedFolderId === node.id;
+    }
+  } else {
+    // Файлы в сайдбаре не выделяются
+    isSelected = false;
+  }
+  
   const isEditing = editingId === node.id;
 
   return (
@@ -216,7 +253,7 @@ function TreeNode({
         }}
       >
         <Caret>
-          {isFolder ? (isExpanded ? '📂' : '📁') : getFileIcon(node.mime)}
+          {isFolder ? <Icon src={folderIcon} alt="Папка" /> : getFileIcon(node.mime)}
         </Caret>
         {isEditing ? (
           <EditInput
@@ -256,6 +293,7 @@ function TreeNode({
             commitRename={commitRename}
             inputRef={inputRef}
             isAuthenticated={isAuthenticated}
+            root={root}
           />
         ))}
     </div>
@@ -348,6 +386,7 @@ export function Sidebar() {
         commitRename={commitRename}
         inputRef={inputRef}
         isAuthenticated={isAuthenticated}
+        root={root}
       />
     </TreeWrap>
   );

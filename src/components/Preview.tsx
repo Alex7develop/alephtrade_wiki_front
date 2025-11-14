@@ -19,6 +19,7 @@ import {
   selectFolder,
 } from '@/store/fsSlice';
 import { FilesList } from './FilesList';
+import { Tooltip } from './Tooltip';
 
 const Wrap = styled.div`
   height: 100%;
@@ -33,12 +34,11 @@ const Wrap = styled.div`
 
 const Toolbar = styled.div`
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: center;
-  padding: 16px 20px;
+  padding: 12px 16px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.surface};
-  box-shadow: 0 1px 3px rgba(0,0,0,.05);
   position: sticky;
   top: 0;
   z-index: 10;
@@ -59,8 +59,8 @@ const Toolbar = styled.div`
 `;
 
 const Title = styled.div`
-  font-weight: 600;
-  font-size: 16px;
+  font-weight: 500;
+  font-size: 14px;
   color: ${({ theme }) => theme.colors.text};
 `;
 
@@ -86,8 +86,8 @@ const FileNameContainer = styled.div`
 `;
 
 const FileName = styled.div`
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   color: ${({ theme }) => theme.colors.text};
   white-space: nowrap;
   overflow: hidden;
@@ -95,12 +95,12 @@ const FileName = styled.div`
   max-width: 400px;
   
   @media (max-width: 768px) {
-    font-size: 14px;
+    font-size: 13px;
     max-width: 200px;
   }
   
   @media (max-width: 480px) {
-    font-size: 13px;
+    font-size: 12px;
     max-width: 150px;
   }
 `;
@@ -116,7 +116,7 @@ const EditIcon = styled.button`
   cursor: pointer;
   padding: 0;
   border-radius: 4px;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease;
   flex-shrink: 0;
   opacity: 0.6;
   
@@ -126,7 +126,7 @@ const EditIcon = styled.button`
   }
   
   &:active {
-    transform: scale(0.95);
+    opacity: 0.8;
   }
   
   @media (max-width: 480px) {
@@ -147,20 +147,19 @@ const EditIconImg = styled.img`
 `;
 
 const EditInput = styled.input`
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   color: ${({ theme }) => theme.colors.text};
   background: ${({ theme }) => theme.colors.surfaceAlt};
-  border: 2px solid ${({ theme }) => theme.colors.primary};
-  border-radius: 6px;
+  border: 1px solid darkblue;
+  border-radius: 4px;
   padding: 4px 8px;
   outline: none;
   min-width: 400px;
   max-width: 400px;
   
   &:focus {
-    border-color: ${({ theme }) => theme.colors.primary};
-    box-shadow: 0 0 0 2px rgba(90,90,90,0.1);
+    border-color: darkblue;
   }
   
   @media (max-width: 768px) {
@@ -190,21 +189,20 @@ const SaveBtn = styled.button`
   width: 28px;
   height: 28px;
   border: none;
-  background: ${({ theme }) => theme.colors.primary};
+  background: darkblue;
   color: #fff;
   cursor: pointer;
   border-radius: 4px;
   font-size: 14px;
   padding: 0;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease;
   
   &:hover {
-    background: ${({ theme }) => theme.colors.primaryAccent};
-    transform: scale(1.05);
+    background: #000075;
   }
   
   &:active {
-    transform: scale(0.95);
+    opacity: 0.9;
   }
   
   @media (max-width: 480px) {
@@ -227,15 +225,14 @@ const CancelBtn = styled.button`
   border-radius: 4px;
   font-size: 18px;
   padding: 0;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease;
   
   &:hover {
     background: ${({ theme }) => theme.colors.border};
-    transform: scale(1.05);
   }
   
   &:active {
-    transform: scale(0.95);
+    opacity: 0.8;
   }
   
   @media (max-width: 480px) {
@@ -246,29 +243,28 @@ const CancelBtn = styled.button`
 `;
 
 const ActionBtn = styled.button`
-  height: 36px;
-  padding: 0 16px;
-  border-radius: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 4px;
   background: ${({ theme }) => theme.colors.surfaceAlt};
   color: ${({ theme }) => theme.colors.text};
   border: 1px solid ${({ theme }) => theme.colors.border};
   cursor: pointer;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s ease;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 400;
+  transition: background-color 0.15s ease;
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   
   &:hover {
     background: ${({ theme }) => theme.colors.surface};
     border-color: ${({ theme }) => theme.colors.primary};
-    transform: translateY(-1px);
   }
   &:active {
-    transform: scale(0.95);
+    opacity: 0.9;
   }
   
   /* Мобильные устройства */
@@ -293,7 +289,7 @@ const Icon = styled.img`
 `;
 
 const Body = styled.div`
-  padding: 24px;
+  padding: 5px;
   color: ${({ theme }) => theme.colors.text};
   height: 100%;
   overflow: auto;
@@ -372,8 +368,8 @@ const MdWrap = styled.div`
   overflow: auto;
   background: ${({ theme }) => theme.colors.surface};
   border-radius: ${({ theme }) => theme.radius.sm};
-  border: 1px solid ${({ theme }) => theme.colors.border};
-  padding: 16px;
+  // border: 1px solid ${({ theme }) => theme.colors.border};
+  padding: 3px;
 
   /* базовые стили markdown */
   h1,
@@ -857,21 +853,27 @@ export function Preview() {
                   autoFocus
                 />
                 <EditActions>
-                  <SaveBtn onClick={handleSaveName} title="Сохранить">
-                    ✓
-                  </SaveBtn>
-                  <CancelBtn onClick={handleCancelEdit} title="Отменить">
-                    ×
-                  </CancelBtn>
+                  <Tooltip text="Сохранить">
+                    <SaveBtn onClick={handleSaveName}>
+                      ✓
+                    </SaveBtn>
+                  </Tooltip>
+                  <Tooltip text="Отменить">
+                    <CancelBtn onClick={handleCancelEdit}>
+                      ×
+                    </CancelBtn>
+                  </Tooltip>
                 </EditActions>
               </>
             ) : (
               <>
                 <FileName title={node.name}>{node.name}</FileName>
                 {auth.isAuthenticated && auth.token && node.type !== 'folder' && (
-                  <EditIcon onClick={handleStartEdit} title="Редактировать имя файла">
-                    <EditIconImg src={editIcon} alt="Редактировать" />
-                  </EditIcon>
+                  <Tooltip text="Редактировать имя файла">
+                    <EditIcon onClick={handleStartEdit}>
+                      <EditIconImg src={editIcon} alt="Редактировать" />
+                    </EditIcon>
+                  </Tooltip>
                 )}
               </>
             )}
@@ -881,32 +883,36 @@ export function Preview() {
         {auth.isAuthenticated && auth.token && (
           <>
             {!isFolder && (
-              <ActionBtn
-                onClick={deleteFile}
-                title="Удалить файл"
-                style={{ color: '#fff', background: '#8a8a8a', borderColor: '#8a8a8a' }}
-              >
-                <Icon src={deleteIcon} alt="Удалить" />
-                Удалить
-              </ActionBtn>
+              <Tooltip text="Удалить файл">
+                <ActionBtn
+                  onClick={deleteFile}
+                  style={{ color: '#fff', background: '#8a8a8a', borderColor: '#8a8a8a' }}
+                >
+                  <Icon src={deleteIcon} alt="Удалить" />
+                  Удалить
+                </ActionBtn>
+              </Tooltip>
             )}
             {isFolder && node.id !== 'root' && (
-              <ActionBtn
-                onClick={deleteFolder}
-                title="Удалить папку"
-                style={{ color: '#fff', background: '#8a8a8a', borderColor: '#8a8a8a' }}
-              >
-                <Icon src={deleteIcon} alt="Удалить папку" />
-                Удалить папку
-              </ActionBtn>
+              <Tooltip text="Удалить папку">
+                <ActionBtn
+                  onClick={deleteFolder}
+                  style={{ color: '#fff', background: '#8a8a8a', borderColor: '#8a8a8a' }}
+                >
+                  <Icon src={deleteIcon} alt="Удалить папку" />
+                  Удалить папку
+                </ActionBtn>
+              </Tooltip>
             )}
           </>
         )}
         {isMd && (
-          <ActionBtn onClick={downloadMd} title="Скачать как PDF">
-            <Icon src={downloadIcon} alt="Скачать PDF" />
-            Скачать PDF
-          </ActionBtn>
+          <Tooltip text="Скачать как PDF">
+            <ActionBtn onClick={downloadMd}>
+              <Icon src={downloadIcon} alt="Скачать PDF" />
+              Скачать PDF
+            </ActionBtn>
+          </Tooltip>
         )}
       </Toolbar>
       <Body>

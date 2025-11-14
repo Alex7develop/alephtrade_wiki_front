@@ -39,35 +39,35 @@ export type AppTheme = {
 export const darkTheme: AppTheme = {
   mode: 'dark',
   colors: {
-    background: '#0b132b',
-    surface: '#1c2541',
-    surfaceAlt: '#243b55',
-    primary: '#3a86ff',
-    primaryAccent: '#73a9ff',
-    text: '#e6eefc',
-    textMuted: '#a9b8d4',
-    border: '#2e3a5a',
-    success: '#2ec4b6',
-    warning: '#ffbe0b',
-    danger: '#ff006e'
+    background: '#1a1a1a',
+    surface: '#252525',
+    surfaceAlt: '#2d2d2d',
+    primary: '#0066ff',
+    primaryAccent: '#0052cc',
+    text: '#ffffff',
+    textMuted: '#999999',
+    border: '#3d3d3d',
+    success: '#00b894',
+    warning: '#fdcb6e',
+    danger: '#e74c3c'
   },
   shadows: {
-    sm: '0 1px 2px rgba(0,0,0,.25)',
-    md: '0 6px 24px rgba(0,0,0,.25)',
-    inner: '0 1px 0 rgba(255,255,255,.04) inset, 0 1px 2px rgba(0,0,0,.35) inset'
+    sm: '0 1px 2px rgba(0,0,0,.2)',
+    md: '0 2px 8px rgba(0,0,0,.2)',
+    inner: 'inset 0 1px 2px rgba(0,0,0,.1)'
   },
   radius: {
-    sm: '8px',
-    md: '12px',
-    lg: '16px'
+    sm: '4px',
+    md: '6px',
+    lg: '8px'
   },
   fontSize: {
-    sm: '14px',
-    md: '16px',
-    lg: '18px',
+    sm: '13px',
+    md: '15px',
+    lg: '17px',
   },
   gradients: {
-    primary: 'linear-gradient(180deg, #3a86ff, #73a9ff)',
+    primary: 'linear-gradient(180deg, #0066ff, #0052cc)',
   },
   spacing: (n: number) => `${n * 8}px`
 };
@@ -77,25 +77,25 @@ export const lightTheme: AppTheme = {
   colors: {
     background: '#ffffff',
     surface: '#ffffff',
-    surfaceAlt: '#f5f5f5',
-    primary: '#5a5a5a',
-    primaryAccent: '#6c6c6c',
-    text: '#1a1a1a',
-    textMuted: '#8a8a8a',
-    border: '#e0e0e0',
-    success: '#4a4a4a',
-    warning: '#6a6a6a',
-    danger: '#8a8a8a'
+    surfaceAlt: '#f8f8f8',
+    primary: '#0066ff',
+    primaryAccent: '#0052cc',
+    text: '#000000',
+    textMuted: '#666666',
+    border: '#e5e5e5',
+    success: '#00b894',
+    warning: '#fdcb6e',
+    danger: '#e74c3c'
   },
   shadows: {
-    sm: '0 1px 3px rgba(0,0,0,.08)',
-    md: '0 4px 12px rgba(0,0,0,.08)',
-    inner: '0 1px 0 rgba(255,255,255,.8) inset, 0 1px 2px rgba(0,0,0,.03) inset'
+    sm: '0 1px 2px rgba(0,0,0,.06)',
+    md: '0 2px 8px rgba(0,0,0,.08)',
+    inner: 'inset 0 1px 2px rgba(0,0,0,.05)'
   },
   radius: {
-    sm: '6px',
-    md: '8px',
-    lg: '12px'
+    sm: '4px',
+    md: '6px',
+    lg: '8px'
   },
   fontSize: {
     sm: '13px',
@@ -103,7 +103,7 @@ export const lightTheme: AppTheme = {
     lg: '17px',
   },
   gradients: {
-    primary: 'linear-gradient(135deg, #5a5a5a, #6c6c6c)',
+    primary: 'linear-gradient(135deg, #0066ff, #0052cc)',
   },
   spacing: (n: number) => `${n * 8}px`
 };

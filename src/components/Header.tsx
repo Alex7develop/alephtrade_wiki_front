@@ -4,25 +4,26 @@ import { setSearch, setSearchType, uploadFileAPI, searchAPI } from '@/store/fsSl
 import type { RootState } from '@/store/store';
 import type { SearchType } from '@/store/fsSlice';
 import logoSrc from '/icon/featherIcon.svg';
-import addIcon from '/icon/add_11891531.png';
-import uploadIcon from '/icon/file_4970405.png';
-import themeIcon from '/icon/icons8-день-и-ночь-50.png';
+import addIcon from '/icon/plus.png';
+import uploadIcon from '/icon/download.png';
+import themeIcon from '/icon/theme.png';
+import userIcon from '/icon/user.png';
 import { useEffect, useState, useCallback } from 'react';
 import { useThemeMode } from '@/styles/ThemeMode';
 import React, { useRef } from 'react';
 import { AuthModal } from './AuthModal';
 import { UserDropdown } from './UserDropdown';
 import { CreateFolderModal } from './CreateFolderModal';
+import { Tooltip } from './Tooltip';
 
 const Bar = styled.div`
-  height: 60px;
+  height: 56px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding: 0 24px;
+  gap: 12px;
+  padding: 0 20px;
   background: ${({ theme }) => theme.colors.surface};
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-  box-shadow: 0 1px 3px rgba(0,0,0,.05);
   width: 100%;
   max-width: 100%;
   overflow: hidden;
@@ -60,22 +61,20 @@ const Brand = styled.div`
 `;
 
 const Logo = styled.img`
-  width: 32px;
-  height: 32px;
+  width: 24px;
+  height: 24px;
   display: block;
-  filter: drop-shadow(0 1px 2px rgba(0,0,0,.1));
 `;
 
 const BrandTitle = styled.div`
-  font-weight: 600;
-  font-size: 20px;
+  font-weight: 500;
+  font-size: 16px;
   color: ${({ theme }) => theme.colors.text};
-  letter-spacing: -0.01em;
   white-space: nowrap;
   
   @media (max-width: 480px) {
-    font-size: 18px;
-    display: none; /* Скрываем на очень маленьких экранах */
+    font-size: 15px;
+    display: none;
   }
 `;
 
@@ -115,39 +114,35 @@ const SearchToggleWrapper = styled.div`
 
 const SearchToggleSwitch = styled.button<{ $active: boolean }>`
   position: relative;
-  width: 48px;
-  height: 28px;
-  border-radius: 14px;
+  width: 40px;
+  height: 20px;
+  border-radius: 10px;
   border: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ $active, theme }) => 
     $active ? theme.colors.primary : theme.colors.surfaceAlt};
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background-color 0.2s ease;
   outline: none;
   padding: 0;
   
   &:hover {
     border-color: ${({ theme }) => theme.colors.primary};
-    box-shadow: 0 0 0 2px rgba(90,90,90,0.1);
   }
   
   &:focus {
     border-color: ${({ theme }) => theme.colors.primary};
-    box-shadow: 0 0 0 3px rgba(90,90,90,0.15);
   }
   
   &::after {
     content: '';
     position: absolute;
     top: 2px;
-    left: ${({ $active }) => $active ? '22px' : '2px'};
-    width: 22px;
-    height: 22px;
+    left: ${({ $active }) => $active ? '18px' : '2px'};
+    width: 16px;
+    height: 16px;
     border-radius: 50%;
     background: #fff;
-    border: 1px solid ${({ theme }) => theme.colors.border};
-    transition: left 0.3s ease;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    transition: left 0.2s ease;
   }
   
   @media (max-width: 768px) {
@@ -192,15 +187,15 @@ const SearchToggleText = styled.span`
 
 const Search = styled.input`
   flex: 1;
-  height: 36px;
-  border-radius: 8px;
+  height: 32px;
+  border-radius: 4px;
   border: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.surfaceAlt};
   color: ${({ theme }) => theme.colors.text};
-  padding: 0 16px;
-  font-size: 15px;
+  padding: 0 12px;
+  font-size: 14px;
   outline: none;
-  transition: all 0.2s ease;
+  transition: border-color 0.15s ease;
   min-width: 0;
   width: 100%;
   max-width: 100%;
@@ -209,7 +204,6 @@ const Search = styled.input`
   }
   &:focus { 
     border-color: ${({ theme }) => theme.colors.primary}; 
-    box-shadow: 0 0 0 3px rgba(90,90,90,.1); 
     background: ${({ theme }) => theme.colors.surface};
   }
 
@@ -231,19 +225,19 @@ const Search = styled.input`
 `;
 
 const Button = styled.button`
-  height: 36px;
-  padding: 0 16px;
-  border-radius: 8px;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 4px;
   background: ${({ theme }) => theme.colors.primary};
   color: #fff;
   border: none;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13px;
+  font-weight: 400;
   display: flex;
   align-items: center;
-  gap: 8px;
-  transition: all 0.2s ease;
+  gap: 6px;
+  transition: background-color 0.15s ease;
   -webkit-tap-highlight-color: transparent;
   
   .button-text {
@@ -252,16 +246,52 @@ const Button = styled.button`
   
   &:hover { 
     background: ${({ theme }) => theme.colors.primaryAccent};
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(90,90,90,.2);
   }
   &:active { 
-    transform: translateY(0) scale(0.98);
+    opacity: 0.9;
   }
   &:disabled {
-    opacity: 0.6;
+    opacity: 0.5;
     cursor: not-allowed;
-    transform: none;
+  }
+
+  /* Скрываем на мобильных */
+  @media (max-width: 768px) {
+    &.desktop-only {
+      display: none;
+    }
+  }
+`;
+
+const GrayButton = styled.button`
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 4px;
+  background: ${({ theme }) => theme.colors.surfaceAlt};
+  color: ${({ theme }) => theme.colors.text};
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  
+  .button-text {
+    white-space: nowrap;
+  }
+  
+  &:hover { 
+    background: ${({ theme }) => theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'};
+  }
+  &:active { 
+    opacity: 0.8;
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   /* Скрываем на мобильных */
@@ -278,29 +308,40 @@ const Icon = styled.img`
   filter: brightness(0) invert(1);
 `;
 
+const GrayIcon = styled.img`
+  width: 16px;
+  height: 16px;
+  filter: none;
+  opacity: 0.7;
+`;
+
+const UserIcon = styled.img`
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  filter: brightness(0) invert(1);
+`;
+
 const Toggle = styled.button`
-  height: 36px;
-  padding: 0 12px;
-  border-radius: 8px;
-  background: ${({ theme }) => theme.colors.primary};
-  color: #fff;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.text};
   border: none;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 6px;
-  transition: all 0.2s ease;
+  justify-content: center;
+  transition: background-color 0.15s ease;
   -webkit-tap-highlight-color: transparent;
   
   &:hover {
-    background: ${({ theme }) => theme.colors.primaryAccent};
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(90,90,90,.2);
+    background: ${({ theme }) => theme.colors.surfaceAlt};
   }
   &:active {
-    transform: scale(0.95);
+    opacity: 0.8;
   }
   
   /* Скрываем на мобильных */
@@ -314,52 +355,103 @@ const Toggle = styled.button`
 const UploadModalBg = styled.div`
   position: fixed;
   left: 0; top: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,.5);
+  background: rgba(0,0,0,.4);
   z-index: 20;
   display: flex;
   align-items: center;
   justify-content: center;
-  backdrop-filter: blur(4px);
 `;
 const UploadModal = styled.div`
   background: ${({ theme }) => theme.colors.surface};
-  box-shadow: 0 20px 40px rgba(0,0,0,.15);
-  border-radius: 12px;
-  padding: 32px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+  border-radius: 6px;
+  padding: 20px;
   min-width: 400px;
+  max-width: 90vw;
   position: relative;
   display: flex; 
   flex-direction: column; 
-  gap: 20px;
+  gap: 12px;
   border: 1px solid ${({ theme }) => theme.colors.border};
 `;
 const UploadTitle = styled.div`
-  font-weight: 600;
-  font-size: 18px;
+  font-weight: 500;
+  font-size: 16px;
   color: ${({ theme }) => theme.colors.text};
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 `;
 const UploadActions = styled.div`
   display: flex; 
-  gap: 12px; 
+  gap: 8px; 
   justify-content: flex-end;
-  margin-top: 8px;
+  margin-top: 4px;
+`;
+
+const UploadCancelButton = styled.button`
+  padding: 8px 16px;
+  border-radius: 4px;
+  background: ${({ theme }) => theme.colors.surfaceAlt};
+  color: ${({ theme }) => theme.colors.text};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'};
+  }
+  
+  &:active:not(:disabled) {
+    opacity: 0.8;
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const UploadSubmitButton = styled.button`
+  padding: 8px 16px;
+  border-radius: 4px;
+  background: ${({ theme }) => theme.colors.primary};
+  color: #fff;
+  border: none;
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  min-width: 120px;
+  
+  &:hover:not(:disabled) {
+    background: ${({ theme }) => theme.colors.primaryAccent};
+  }
+  
+  &:active:not(:disabled) {
+    opacity: 0.9;
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 `;
 const UploadError = styled.div`
   color: ${({ theme }) => theme.colors.danger}; 
-  font-size: 14px;
+  font-size: 13px;
   margin-top: 4px;
 `;
 const Select = styled.select`
   width: 100%;
-  padding: 12px 16px;
+  padding: 8px 12px;
   border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 8px;
-  font-size: 16px;
+  border-radius: 4px;
+  font-size: 14px;
   background: ${({ theme }) => theme.colors.surfaceAlt};
   color: ${({ theme }) => theme.colors.text};
   margin-bottom: 16px;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.15s ease;
   box-sizing: border-box;
   cursor: pointer;
   
@@ -375,18 +467,17 @@ const Select = styled.select`
 `;
 
 const FileField = styled.input`
-  font-size: 15px; 
+  font-size: 14px; 
   display: block;
-  padding: 12px;
+  padding: 8px 12px;
   border: 1px solid ${({ theme }) => theme.colors.border};
-  border-radius: 8px;
+  border-radius: 4px;
   background: ${({ theme }) => theme.colors.surfaceAlt};
   color: ${({ theme }) => theme.colors.text};
   width: 100%;
   &:focus {
     outline: none;
     border-color: ${({ theme }) => theme.colors.primary};
-    box-shadow: 0 0 0 3px rgba(90,90,90,.1);
   }
 `;
 
@@ -413,25 +504,23 @@ const Actions = styled.div`
 
 const MenuButton = styled.button`
   display: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: ${({ theme }) => theme.colors.primary};
-  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 4px;
+  background: transparent;
+  color: ${({ theme }) => theme.colors.text};
   border: none;
   cursor: pointer;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  transition: background-color 0.15s ease;
   
   &:hover {
-    background: ${({ theme }) => theme.colors.primaryAccent};
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(90,90,90,.2);
+    background: ${({ theme }) => theme.colors.surfaceAlt};
   }
   
   &:active {
-    transform: translateY(0);
+    opacity: 0.8;
   }
 
   /* Показываем только на мобильных */
@@ -447,30 +536,29 @@ const MenuButton = styled.button`
 `;
 
 const Avatar = styled.button`
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
-  background: ${({ theme }) => theme.colors.primary};
+  background: darkblue;
   color: #fff;
   border: none;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 14px;
-  font-weight: 600;
-  transition: all 0.2s ease;
+  font-size: 22px;
+  font-weight: 500;
+  transition: background-color 0.15s ease;
   
   &:hover {
-    background: ${({ theme }) => theme.colors.primaryAccent};
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(90,90,90,.2);
+    background: #000075;
   }
   
   &:active {
-    transform: translateY(0);
+    opacity: 0.9;
   }
 `;
+
 
 interface HeaderProps {
   sidebarOpen: boolean;
@@ -591,12 +679,13 @@ export function Header({
           placeholder={searchType === 'local' ? 'Поиск по названию...' : 'AI поиск по контексту...'}
         />
         <SearchToggleWrapper>
-          <SearchToggleSwitch
-            $active={searchType === 'ai'}
-            onClick={() => dispatch(setSearchType(searchType === 'local' ? 'ai' : 'local'))}
-            title={searchType === 'local' ? 'Переключить на AI поиск' : 'Переключить на поиск по названию'}
-            aria-label={searchType === 'local' ? 'Переключить на AI поиск' : 'Переключить на поиск по названию'}
-          />
+          <Tooltip text={searchType === 'local' ? 'Переключить на AI поиск' : 'Переключить на поиск по названию'}>
+            <SearchToggleSwitch
+              $active={searchType === 'ai'}
+              onClick={() => dispatch(setSearchType(searchType === 'local' ? 'ai' : 'local'))}
+              aria-label={searchType === 'local' ? 'Переключить на AI поиск' : 'Переключить на поиск по названию'}
+            />
+          </Tooltip>
           <SearchToggleText>
             {searchType === 'local' ? 'Название' : 'AI'}
           </SearchToggleText>
@@ -604,31 +693,38 @@ export function Header({
       </SearchContainer>
       {auth.isAuthenticated && auth.token && (
         <>
-          <Button
-            onClick={() => setShowCreateFolderModal(true)}
-            className="desktop-only"
-          >
-            <Icon src={addIcon} alt="Создать папку" />
-            <span className="button-text">Создать папку</span>
-          </Button>
-          <Button
-            onClick={() => setUploadOpen(true)}
-            className="desktop-only"
-          >
-            <Icon src={uploadIcon} alt="Загрузить файл" />
-            <span className="button-text">Загрузить файл</span>
-          </Button>
+          <Tooltip text="Создать папку">
+            <GrayButton
+              onClick={() => setShowCreateFolderModal(true)}
+              className="desktop-only"
+            >
+              <GrayIcon src={addIcon} alt="Создать папку" />
+              <span className="button-text">Создать папку</span>
+            </GrayButton>
+          </Tooltip>
+          <Tooltip text="Загрузить файл">
+            <GrayButton
+              onClick={() => setUploadOpen(true)}
+              className="desktop-only"
+            >
+              <GrayIcon src={uploadIcon} alt="Загрузить файл" />
+              <span className="button-text">Загрузить файл</span>
+            </GrayButton>
+          </Tooltip>
         </>
       )}
-        <Toggle onClick={toggle} title="Сменить тему" className="desktop-only">
-          <Icon src={themeIcon} alt="Тема" />
-          {mode === 'light' ? '' : ''}
-        </Toggle>
+        <Tooltip text="Сменить тему">
+          <Toggle onClick={toggle} className="desktop-only">
+            <Icon src={themeIcon} alt="Тема" style={{ filter: 'none', width: '18px', height: '18px' }} />
+          </Toggle>
+        </Tooltip>
         
         <Actions>
-          <MenuButton onClick={() => setSidebarOpen(!sidebarOpen)} title="Меню">
-            ☰
-          </MenuButton>
+          <Tooltip text="Меню">
+            <MenuButton onClick={() => setSidebarOpen(!sidebarOpen)}>
+              ☰
+            </MenuButton>
+          </Tooltip>
           
           <Avatar 
             ref={(el) => {
@@ -644,7 +740,7 @@ export function Header({
             }} 
             title={auth.user && auth.isAuthenticated && auth.token ? `${auth.user.name} ${auth.user.second_name}` : 'Войти'}
           >
-            {auth.user && auth.isAuthenticated && auth.token ? auth.user.name.charAt(0).toUpperCase() : '👤'}
+            {auth.user && auth.isAuthenticated && auth.token ? auth.user.name.charAt(0).toUpperCase() : <UserIcon src={userIcon} alt="Пользователь" />}
           </Avatar>
           {auth.user && auth.isAuthenticated && auth.token && (
             <UserDropdown 
@@ -671,7 +767,7 @@ export function Header({
               disabled={uploading}
               onChange={onChooseFile}
             />
-            {file && <div style={{fontSize:15, color:'#888', marginBottom: '16px'}}>Файл: {file.name}</div>}
+            {file && <div style={{fontSize:13, color: 'inherit', opacity: 0.7, marginBottom: '12px'}}>Файл: {file.name}</div>}
             <Select
               value={uploadAccess}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setUploadAccess(Number(e.target.value) as 0 | 1)}
@@ -682,27 +778,25 @@ export function Header({
             </Select>
             {uploadError && <UploadError>{uploadError}</UploadError>}
             <UploadActions>
-              <Button 
+              <UploadCancelButton 
                 disabled={uploading} 
-                style={{ background: '#8a8a8a', color: '#fff' }} 
                 onClick={()=>{
                   if(!uploading) {
                     setUploadOpen(false);
                     setFile(null);
-                    setUploadAccess(1); // Сбрасываем на значение по умолчанию
+                    setUploadAccess(1);
                   }
                 }}
               >
                 Отмена
-              </Button>
-              <Button
+              </UploadCancelButton>
+              <UploadSubmitButton
                 type="button"
-                style={{ minWidth: 120 }}
                 disabled={uploading}
                 onClick={onUpload}
               >
                 {uploading ? '⏳ Загрузка...' : 'Загрузить'}
-              </Button>
+              </UploadSubmitButton>
             </UploadActions>
           </UploadModal>
         </UploadModalBg>
