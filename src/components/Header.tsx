@@ -507,12 +507,12 @@ export function Header({
   
   // Принудительно закрываем dropdown при logout
   useEffect(() => {
-    if (!auth.isAuthenticated) {
+    if (!auth.isAuthenticated || !auth.token) {
       setUserDropdownOpen(false);
       // Принудительно обновляем состояние для перерисовки
       setAuthOpen(false);
     }
-  }, [auth.isAuthenticated, setAuthOpen]);
+  }, [auth.isAuthenticated, auth.token, setAuthOpen]);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -634,19 +634,19 @@ export function Header({
             ref={(el) => {
               if (el) avatarRef.current = el;
             }}
-            key={auth.isAuthenticated ? 'authenticated' : 'not-authenticated'}
+            key={auth.isAuthenticated && auth.token ? 'authenticated' : 'not-authenticated'}
             onClick={() => {
-              if (auth.user && auth.isAuthenticated) {
+              if (auth.user && auth.isAuthenticated && auth.token) {
                 setUserDropdownOpen(!userDropdownOpen);
               } else {
                 setAuthOpen(true);
               }
             }} 
-            title={auth.user && auth.isAuthenticated ? `${auth.user.name} ${auth.user.second_name}` : 'Войти'}
+            title={auth.user && auth.isAuthenticated && auth.token ? `${auth.user.name} ${auth.user.second_name}` : 'Войти'}
           >
-            {auth.user && auth.isAuthenticated ? auth.user.name.charAt(0).toUpperCase() : '👤'}
+            {auth.user && auth.isAuthenticated && auth.token ? auth.user.name.charAt(0).toUpperCase() : '👤'}
           </Avatar>
-          {auth.user && auth.isAuthenticated && (
+          {auth.user && auth.isAuthenticated && auth.token && (
             <UserDropdown 
               key={`dropdown-${auth.isAuthenticated}`}
               isOpen={userDropdownOpen} 
@@ -677,8 +677,8 @@ export function Header({
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setUploadAccess(Number(e.target.value) as 0 | 1)}
               disabled={uploading}
             >
-              <option value={1}>Публичный (1)</option>
-              <option value={0}>Приватный (0)</option>
+              <option value={1}>Приватный (1)</option>
+              <option value={0}>Публичный (0)</option>
             </Select>
             {uploadError && <UploadError>{uploadError}</UploadError>}
             <UploadActions>

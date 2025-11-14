@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import styled from 'styled-components';
 import { RootState } from '../store/store';
-import { logout, getUser } from '../store/fsSlice';
+import { logout, getUser, fetchTree } from '../store/fsSlice';
 
 const DropdownContainer = styled.div`
   position: relative;
@@ -184,9 +184,13 @@ export const UserDropdown: React.FC<UserDropdownProps> = ({ isOpen, onClose, anc
   const handleLogout = async () => {
     try {
       if (auth.token) {
-        await dispatch(logout(auth.token));
+        const result = await dispatch(logout(auth.token));
         // Принудительно закрываем dropdown после logout
         onClose();
+        // После успешного выхода загружаем публичное дерево (access: 0)
+        if (logout.fulfilled.match(result)) {
+          dispatch(fetchTree(0));
+        }
       }
     } catch (error) {
       console.error('Ошибка выхода:', error);

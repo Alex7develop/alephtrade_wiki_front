@@ -215,9 +215,14 @@ export default function App() {
       });
     } else if (!auth.isAuthenticated && isInitialized && hasLoadedTree) {
       // Если пользователь вышел - перезагружаем публичное дерево
-      dispatch(fetchTree(0) as any);
+      // Это сработает автоматически через logout thunk, но на всякий случай оставляем fallback
+      dispatch(fetchTree(0) as any).then((result: any) => {
+        if (result.type && result.type.includes('fulfilled')) {
+          setHasLoadedTree(true);
+        }
+      });
     }
-  }, [auth.isAuthenticated, auth.token, isInitialized, dispatch]);
+  }, [auth.isAuthenticated, auth.token, isInitialized, hasLoadedTree, dispatch]);
 
   // Обрабатываем ошибку авторизации при загрузке дерева
   useEffect(() => {

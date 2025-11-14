@@ -225,8 +225,8 @@ export const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
             value={access}
             onChange={(e) => setAccess(Number(e.target.value) as 0 | 1)}
           >
-            <option value={1}>Публичная (1)</option>
-            <option value={0}>Приватная (0)</option>
+            <option value={1}>Приватная (1)</option>
+            <option value={0}>Публичная (0)</option>
           </Select>
           {error && <Error>{error}</Error>}
           <ButtonGroup>

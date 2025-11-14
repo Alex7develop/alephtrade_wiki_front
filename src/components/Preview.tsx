@@ -444,11 +444,11 @@ export function Preview() {
   // Приоритет у selectedFileId (если выбран файл)
   const node = find(root, selectedFileId || selectedFolderId);
   
-  // Сбрасываем режим редактирования при смене файла
+  // Сбрасываем режим редактирования при смене файла или при выходе
   useEffect(() => {
     setIsEditingName(false);
     setEditingNameValue('');
-  }, [selectedFileId, selectedFolderId]);
+  }, [selectedFileId, selectedFolderId, auth.isAuthenticated, auth.token]);
 
   // Load markdown content when applicable. The hook is always called.
   useEffect(() => {

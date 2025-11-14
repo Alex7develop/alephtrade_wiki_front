@@ -749,17 +749,22 @@ const fsSlice = createSlice({
         state.auth.loading = true;
         state.auth.error = null;
       })
-      .addCase(logout.fulfilled, (state) => {
+      .addCase(logout.fulfilled, (state, action) => {
         state.auth.loading = false;
         state.auth.user = null;
         state.auth.token = null;
         state.auth.isAuthenticated = false;
+        // Сбрасываем выбранные файлы/папки при выходе
+        state.selectedFileId = '';
+        state.selectedFolderId = 'root';
         // Очищаем токен из localStorage
         try {
           localStorage.removeItem('auth_token');
         } catch (error) {
           console.error('Ошибка удаления токена:', error);
         }
+        // Возвращаем action для дальнейшей обработки
+        return state;
       })
       .addCase(logout.rejected, (state, action) => {
         state.auth.loading = false;
