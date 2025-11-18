@@ -3,8 +3,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useMemo, useState, useRef, useEffect } from 'react';
 import { selectFolder, selectFile, moveNodeAPI, renameFileAPI } from '@/store/fsSlice';
 import type { RootState } from '@/store/store';
-import fileIcon from '/icon/icons8-файл.svg';
-import folderIcon from '/icon/folder.png';
+import rightArrowIcon from '/icon/right-arrow-.png';
+import downArrowIcon from '/icon/down-arrow.png';
 import lockIcon from '/icon/zamok.png';
 // import publicIcon from '/icon/open_zamok.png';
 
@@ -37,18 +37,19 @@ const ItemRow = styled.div<{ selected?: boolean }>`
   gap: 8px;
   min-height: 32px;
   height: auto;
-  padding: 6px 10px;
-  border-radius: ${({ theme }) => theme.radius.sm};
+  padding: 6px 8px;
+  border-radius: 0;
   cursor: pointer;
   color: ${({ theme }) => theme.colors.text};
   background: ${({ selected, theme }) => 
     selected 
       ? (theme.mode === 'dark' ? 'rgba(0, 102, 255, 0.15)' : 'rgba(0, 102, 255, 0.08)')
       : 'transparent'};
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   transition: background-color 0.15s ease;
-  margin-bottom: 2px;
+  margin-bottom: 0;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   
@@ -65,31 +66,53 @@ const ItemRow = styled.div<{ selected?: boolean }>`
   
   /* Мобильные устройства - увеличенные touch targets */
   @media (max-width: 768px) {
-    min-height: 48px;
-    padding: 12px;
-    margin-bottom: 6px;
-    border-radius: ${({ theme }) => theme.radius.md};
+    min-height: 44px;
+    padding: 10px 8px;
+    margin-bottom: 0;
   }
   
   @media (max-width: 480px) {
-    min-height: 52px;
-    padding: 14px 12px;
-    margin-bottom: 8px;
+    min-height: 48px;
+    padding: 12px 8px;
+    margin-bottom: 0;
   }
 `;
 
-const Caret = styled.span`
+const Caret = styled.span<{ $isExpanded?: boolean }>`
   width: 20px;
-  text-align: center;
-  font-size: 12px;
-  color: ${({ theme }) => theme.colors.textMuted};
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
 `;
 
-const Icon = styled.img`
+const FolderIcon = styled.img<{ $isExpanded?: boolean }>`
   width: 16px;
   height: 16px;
-  margin-right: 4px;
-  filter: ${({ theme }) => theme.mode === 'dark' ? 'brightness(0) invert(1)' : 'none'};
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  opacity: ${({ $isExpanded }) => ($isExpanded ? 0 : 1)};
+  transform: ${({ $isExpanded }) => ($isExpanded ? 'rotate(90deg)' : 'rotate(0deg)')};
+  position: ${({ $isExpanded }) => ($isExpanded ? 'absolute' : 'relative')};
+`;
+
+const DownArrowIcon = styled.img<{ $isExpanded?: boolean }>`
+  width: 16px;
+  height: 16px;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  opacity: ${({ $isExpanded }) => ($isExpanded ? 1 : 0)};
+  transform: ${({ $isExpanded }) => ($isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)')};
+  position: ${({ $isExpanded }) => ($isExpanded ? 'relative' : 'absolute')};
+`;
+
+const IconWrapper = styled.div`
+  position: relative;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 
 const AccessIndicator = styled.img`
@@ -119,8 +142,9 @@ const EditInput = styled.input`
   color: ${({ theme }) => theme.colors.text};
   padding: 0 8px;
   outline: none;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   min-width: 0;
   
   &:focus {
@@ -128,9 +152,7 @@ const EditInput = styled.input`
   }
 `;
 
-function getFileIcon(mime?: string): JSX.Element {
-  return <Icon src={fileIcon} alt="Файл" />;
-}
+// Убрали иконки файлов - теперь просто статьи без иконок
 
 function matches(query: string, name: string) {
   return name.toLowerCase().includes(query.trim().toLowerCase());
@@ -184,23 +206,14 @@ function TreeNode({
 
   const isExpanded = expanded.has(node.id);
   
-  // Логика выделения: 
-  // - Если выбран файл: выделяем ТОЛЬКО родительскую папку этого файла
-  // - Если файл НЕ выбран: выделяем папку по selectedFolderId
-  // - Файлы в сайдбаре никогда не выделяются
+  // Логика выделения: выделяем именно выбранный элемент
   let isSelected = false;
   if (isFolder) {
-    if (selectedFileId) {
-      // Если выбран файл, выделяем только родительскую папку этого файла
-      const parentFolder = findParentFolder(root, selectedFileId);
-      isSelected = parentFolder && parentFolder.id === node.id;
-    } else {
-      // Если файл не выбран, выделяем папку по selectedFolderId
-      isSelected = selectedFolderId === node.id;
-    }
+    // Для папок: выделяем если это выбранная папка
+    isSelected = selectedFolderId === node.id;
   } else {
-    // Файлы в сайдбаре не выделяются
-    isSelected = false;
+    // Для файлов: выделяем если это выбранный файл
+    isSelected = selectedFileId === node.id;
   }
   
   const isEditing = editingId === node.id;
@@ -265,8 +278,23 @@ function TreeNode({
           }
         }}
       >
-        <Caret>
-          {isFolder ? <Icon src={folderIcon} alt="Папка" /> : getFileIcon(node.mime)}
+        <Caret $isExpanded={isFolder && isExpanded}>
+          {isFolder && (node.children?.length > 0) ? (
+            <IconWrapper>
+              <FolderIcon 
+                src={rightArrowIcon} 
+                alt="Папка" 
+                $isExpanded={isExpanded}
+              />
+              <DownArrowIcon 
+                src={downArrowIcon} 
+                alt="Раскрыто" 
+                $isExpanded={isExpanded}
+              />
+            </IconWrapper>
+          ) : isFolder ? (
+            <IconWrapper style={{ width: '16px', height: '16px' }} />
+          ) : null}
         </Caret>
         {isEditing ? (
           <EditInput

@@ -64,6 +64,7 @@ const Toolbar = styled.div`
 const Title = styled.div`
   font-weight: 500;
   font-size: 14px;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   color: ${({ theme }) => theme.colors.text};
 `;
 
@@ -493,7 +494,7 @@ const MdWrap = styled.div`
 
 export function Preview() {
   const dispatch: any = useDispatch();
-  const { root, selectedFileId, selectedFolderId, search, auth } = useSelector((s: RootState) => s.fs);
+  const { root, selectedFileId, selectedFolderId, search, searchResults, auth } = useSelector((s: RootState) => s.fs);
   const theme = useTheme();
 
   // Markdown preview state must be declared before any return to preserve hooks order
@@ -518,7 +519,13 @@ export function Preview() {
 
   // Ищем узел по selectedFileId или selectedFolderId
   // Приоритет у selectedFileId (если выбран файл)
-  const node = find(root, selectedFileId || selectedFolderId);
+  // Сначала ищем в дереве, затем в результатах поиска
+  let node = find(root, selectedFileId || selectedFolderId);
+  
+  // Если файл не найден в дереве, ищем в результатах поиска
+  if (!node && selectedFileId && Array.isArray(searchResults)) {
+    node = searchResults.find((item: any) => item.id === selectedFileId) || null;
+  }
   
   // Сбрасываем режим редактирования при смене файла или при выходе
   useEffect(() => {

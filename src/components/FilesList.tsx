@@ -4,9 +4,9 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import type { RootState } from '@/store/store';
 import { selectFile, selectFolder, moveNodeAPI } from '@/store/fsSlice';
 import { renameFileAPI } from '@/store/fsSlice';
-import folderIcon from '/icon/folder.png';
+import rightArrowIcon from '/icon/right-arrow-.png';
+import downArrowIcon from '/icon/down-arrow.png';
 import lockIcon from '/icon/zamok.png';
-import fileIcon from '/icon/icons8-файл.svg';
 // import publicIcon from '/icon/open_zamok.png';
 
 const Wrap = styled.div`
@@ -35,21 +35,23 @@ const Row = styled.div<{ selected?: boolean; $dragging?: boolean }>`
   display: grid;
   grid-template-columns: 1fr 100px;
   align-items: center;
-  min-height: 40px;
+  min-height: 36px;
   height: auto;
   padding: 8px 12px;
-  border-radius: ${({ theme }) => theme.radius.sm};
+  border-radius: 0;
   cursor: pointer;
   background: ${({ selected, theme }) => 
     selected 
       ? (theme.mode === 'dark' ? 'rgba(0, 102, 255, 0.15)' : 'rgba(0, 102, 255, 0.08)')
       : theme.colors.surface};
   color: ${({ theme }) => theme.colors.text};
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 400;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   transition: background-color 0.15s ease;
-  margin-bottom: 4px;
-  border: 1px solid ${({ theme, selected }) => selected ? theme.colors.primary : theme.colors.border};
+  margin-bottom: 0;
+  border: none;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   width: 100%;
@@ -69,22 +71,16 @@ const Row = styled.div<{ selected?: boolean; $dragging?: boolean }>`
   
   /* Мобильные устройства - увеличенные touch targets */
   @media (max-width: 768px) {
-    min-height: 56px;
-    padding: 14px 16px;
-    margin-bottom: 10px;
-    border-radius: ${({ theme }) => theme.radius.md};
-    box-shadow: ${({ $dragging, selected, theme }) => 
-      $dragging ? `0 4px 16px rgba(0,0,0,0.2)` : 
-      selected ? `0 2px 12px rgba(0,0,0,0.15)` : 
-      `0 2px 8px rgba(0,0,0,0.08)`};
-    width: 100%;
-    max-width: 100%;
+    min-height: 48px;
+    padding: 12px;
+    margin-bottom: 0;
+    border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   }
   
   @media (max-width: 480px) {
-    min-height: 60px;
-    padding: 16px;
-    margin-bottom: 12px;
+    min-height: 52px;
+    padding: 14px 12px;
+    margin-bottom: 0;
     grid-template-columns: 1fr auto;
     gap: 12px;
     width: 100%;
@@ -112,15 +108,33 @@ const AccessIndicator = styled.img`
   flex-shrink: 0;
 `;
 
-const ItemIcon = styled.img`
+const FolderIcon = styled.img<{ $isExpanded?: boolean }>`
   width: 16px;
   height: 16px;
   flex-shrink: 0;
-  filter: ${({ theme }) => theme.mode === 'dark' ? 'brightness(0) invert(1)' : 'none'};
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  opacity: ${({ $isExpanded }) => ($isExpanded ? 0 : 1)};
+  transform: ${({ $isExpanded }) => ($isExpanded ? 'rotate(90deg)' : 'rotate(0deg)')};
+  position: ${({ $isExpanded }) => ($isExpanded ? 'absolute' : 'relative')};
 `;
 
-const EmojiIcon = styled.span`
-  font-size: 14px;
+const DownArrowIcon = styled.img<{ $isExpanded?: boolean }>`
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  opacity: ${({ $isExpanded }) => ($isExpanded ? 1 : 0)};
+  transform: ${({ $isExpanded }) => ($isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)')};
+  position: ${({ $isExpanded }) => ($isExpanded ? 'relative' : 'absolute')};
+`;
+
+const IconWrapper = styled.div`
+  position: relative;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 `;
 
@@ -263,25 +277,26 @@ export function FilesList() {
     return mime.split('/').pop() || 'file';
   }
 
-  function getFileIcon(mime?: string): string {
-    if (!mime) return '📄';
-    if (mime === 'application/pdf') return '📄';
-    if (mime === 'text/markdown') return '📝';
-    if (mime === 'text/plain') return '📄';
-    if (mime.startsWith('image/')) return '🖼️';
-    if (mime.endsWith('wordprocessingml.document')) return '📄';
-    return '📄';
-  }
-  
-  function renderItemIcon(item: any) {
+  // Убрали иконки файлов - теперь просто статьи без иконок
+  function renderItemIcon(item: any, isExpanded?: boolean) {
     if (item.type === 'folder') {
-      return <ItemIcon src={folderIcon} alt="Папка" />;
+      return (
+        <IconWrapper>
+          <FolderIcon 
+            src={rightArrowIcon} 
+            alt="Папка" 
+            $isExpanded={isExpanded && (item.children?.length > 0)}
+          />
+          <DownArrowIcon 
+            src={downArrowIcon} 
+            alt="Раскрыто" 
+            $isExpanded={isExpanded && (item.children?.length > 0)}
+          />
+        </IconWrapper>
+      );
     }
-    // Для markdown файлов используем SVG иконку
-    if (item.mime === 'text/markdown') {
-      return <ItemIcon src={fileIcon} alt="Файл" />;
-    }
-    return <EmojiIcon>{getFileIcon(item.mime)}</EmojiIcon>;
+    // Файлы без иконок
+    return null;
   }
   const inputRef = useRef<HTMLInputElement | null>(null);
   useEffect(() => {
@@ -346,7 +361,7 @@ export function FilesList() {
       {filtered.map((f: any) => (
         <Row
           key={f.id}
-          selected={f.type === 'file' ? selectedFileId === f.id : false}
+          selected={f.type === 'file' ? selectedFileId === f.id : selectedFolderId === f.id}
           $dragging={draggingId === f.id}
           style={{
             boxShadow: draggingId === f.id ? '0 0 8px #3178ff' :
@@ -569,7 +584,7 @@ export function FilesList() {
             />
           ) : (
             <Title>
-              {renderItemIcon(f)}
+              {renderItemIcon(f, false)}
               {f.name}
               {/* {f.access !== undefined && f.access === 0 && (
                 <AccessIndicator src={publicIcon} alt="Публичный документ" title="Публичный документ" />

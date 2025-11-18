@@ -48,6 +48,7 @@ const Bar = styled.div`
 
 const Brand = styled.div`
   display: flex;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   align-items: center;
   gap: 12px;
   margin-right: 16px;
@@ -69,6 +70,7 @@ const Logo = styled.img`
 const BrandTitle = styled.div`
   font-weight: 500;
   font-size: 16px;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   color: ${({ theme }) => theme.colors.text};
   white-space: nowrap;
   
@@ -170,6 +172,7 @@ const SearchToggleSwitch = styled.button<{ $active: boolean }>`
 
 const SearchToggleText = styled.span`
   font-size: 12px;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   color: ${({ theme }) => theme.colors.text};
   font-weight: 500;
   white-space: nowrap;
@@ -194,6 +197,7 @@ const Search = styled.input`
   color: ${({ theme }) => theme.colors.text};
   padding: 0 12px;
   font-size: 14px;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   outline: none;
   transition: border-color 0.15s ease;
   min-width: 0;
@@ -234,6 +238,7 @@ const Button = styled.button`
   cursor: pointer;
   font-size: 13px;
   font-weight: 400;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -273,6 +278,7 @@ const GrayButton = styled.button`
   cursor: pointer;
   font-size: 13px;
   font-weight: 400;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
   display: flex;
   align-items: center;
   gap: 6px;

@@ -85,7 +85,7 @@ const initialState: FsState = {
   root: {
     id: 'root',
     type: 'folder',
-    name: '/',
+    name: 'Введение',
     children: []
   },
   selectedFolderId: 'root',
@@ -678,8 +678,113 @@ export const searchAPI = createAsyncThunk(
         const data = await res.json().catch(() => ({}));
         throw new Error((data && data.message) || 'Ошибка поиска');
       }
-      const data = (await res.json()) as ApiNode[];
-      return data.map(mapApiToFs);
+      const response = await res.json() as { 
+        status: string; 
+        results: Array<{
+          metadata: {
+            uuid_file: string;
+            filename: string;
+            wiki_url?: string;
+            type?: string;
+            chunk_idx?: number;
+          };
+          page_content: string;
+          score?: number;
+        }>; 
+        access?: number; 
+        guard?: any 
+      };
+      
+      // API возвращает результаты векторного поиска, нужно преобразовать их в FsNode[]
+      const results = Array.isArray(response.results) ? response.results : [];
+      
+      // Получаем дерево файлов для получения полной информации о файлах
+      const root = state.fs.root;
+      
+      // Функция для поиска файла в дереве по UUID
+      const findFileInTree = (node: FsNode, uuid: string): FsNode | null => {
+        if (node.id === uuid && node.type === 'file') {
+          return node;
+        }
+        if (node.children) {
+          for (const child of node.children) {
+            const found = findFileInTree(child, uuid);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+      
+      // Создаем Map для уникальных файлов (по uuid_file)
+      const uniqueFiles = new Map<string, FsNode>();
+      
+      for (const result of results) {
+        const uuid = result.metadata?.uuid_file;
+        if (!uuid) continue;
+        
+        // Если файл уже добавлен, пропускаем
+        if (uniqueFiles.has(uuid)) continue;
+        
+        // Пытаемся найти файл в дереве для получения полной информации
+        let fileNode = root ? findFileInTree(root, uuid) : null;
+        
+        if (fileNode) {
+          // Используем информацию из дерева (включая s3_url)
+          uniqueFiles.set(uuid, fileNode);
+        } else {
+          // Файл не найден в дереве, создаем FsNode из метаданных поиска
+          const wikiUrl = result.metadata?.wiki_url;
+          const filename = result.metadata?.filename;
+          
+          // Извлекаем object_uuid из wiki_url (последняя часть пути)
+          // wiki_url имеет формат: https://wiki.alephtrade.com/{object_uuid}
+          let objectUuid = uuid; // По умолчанию используем uuid_file
+          if (wikiUrl) {
+            const urlParts = wikiUrl.split('/');
+            const lastPart = urlParts[urlParts.length - 1];
+            // Если последняя часть - это UUID (36 символов с дефисами), используем его как object_uuid
+            if (lastPart && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lastPart)) {
+              objectUuid = lastPart;
+            }
+          }
+          
+          // Определяем расширение файла из filename или по умолчанию md
+          let extension = 'md';
+          let mime = 'text/markdown';
+          if (filename) {
+            // Извлекаем расширение из имени файла
+            const filenameParts = filename.split('.');
+            if (filenameParts.length > 1) {
+              const fileExt = filenameParts[filenameParts.length - 1].toLowerCase();
+              extension = fileExt;
+              if (extension === 'pdf') mime = 'application/pdf';
+              else if (extension === 'md' || extension === 'markdown') mime = 'text/markdown';
+              else if (extension === 'txt') mime = 'text/plain';
+            }
+          }
+          
+          // Пытаемся извлечь имя файла
+          let fileName = filename || uuid;
+          
+          // Строим S3 URL по формату из документации
+          // Формат: https://storage.yandexcloud.net/wiki-docs/{object_uuid}.{extension}
+          const s3Url = `https://storage.yandexcloud.net/wiki-docs/${objectUuid}.${extension}`;
+          
+          const fsNode: FsNode = {
+            id: uuid,
+            type: 'file',
+            name: fileName,
+            url: s3Url,
+            mime: mime,
+            access: response.access !== undefined ? response.access : undefined
+          };
+          
+          uniqueFiles.set(uuid, fsNode);
+        }
+      }
+      
+      // Возвращаем массив уникальных файлов
+      return Array.from(uniqueFiles.values());
     } catch (e: any) {
       return rejectWithValue(e.message || 'Ошибка поиска');
     }
@@ -696,6 +801,8 @@ const fsSlice = createSlice({
     },
     selectFile(state, action: PayloadAction<string>) {
       state.selectedFileId = action.payload;
+      // При выборе файла сбрасываем selectedFolderId, чтобы не выделялась родительская папка
+      state.selectedFolderId = '';
     },
     setSearch(state, action: PayloadAction<string>) {
       state.search = action.payload;
