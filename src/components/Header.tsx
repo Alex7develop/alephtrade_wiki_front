@@ -677,7 +677,7 @@ export function Header({
     <Bar>
       <Brand>
         <Logo src={logoSrc} alt="logo" />
-        <BrandTitle>Wiki</BrandTitle>
+        <BrandTitle></BrandTitle>
       </Brand>
       <SearchContainer>
         <Search
