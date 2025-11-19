@@ -27,10 +27,12 @@ import { Tooltip } from './Tooltip';
 const Wrap = styled.div`
   height: 100%;
   display: grid;
+  grid-template-columns: 1fr auto;
   grid-template-rows: auto 1fr;
 
   /* Мобильные устройства */
   @media (max-width: 768px) {
+    grid-template-columns: 1fr;
     grid-template-rows: auto 1fr;
   }
 `;
@@ -41,10 +43,12 @@ const Toolbar = styled.div`
   align-items: center;
   padding: 12px 38px;
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  border-right: 1px solid ${({ theme }) => theme.colors.border};
   background: ${({ theme }) => theme.colors.surface};
   position: sticky;
   top: 0;
   z-index: 10;
+  grid-column: 1;
 
   /* Мобильные устройства */
   @media (max-width: 768px) {
@@ -302,6 +306,7 @@ const Body = styled.div`
   width: 100%;
   max-width: 100%;
   min-width: 0;
+  grid-column: 1;
   
   /* Мобильные устройства */
   @media (max-width: 768px) {
@@ -313,6 +318,69 @@ const Body = styled.div`
     padding: 12px;
     padding-bottom: 70px;
   }
+`;
+
+const RightSidebar = styled.div`
+  width: 220px;
+  background: ${({ theme }) => theme.colors.surface};
+  border-left: 1px solid ${({ theme }) => theme.colors.border};
+  padding: 20px 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  grid-column: 2;
+  grid-row: 1 / -1;
+  
+  /* Мобильные устройства */
+  @media (max-width: 768px) {
+    display: none;
+  }
+`;
+
+const RightSidebarTitle = styled.div`
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  color: ${({ theme }) => theme.colors.text};
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+`;
+
+const RightSidebarButton = styled.button`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: ${({ theme }) => theme.colors.surfaceAlt};
+  color: ${({ theme }) => theme.colors.text};
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 400;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  transition: background-color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  
+  &:hover {
+    background: ${({ theme }) => theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)'};
+  }
+  
+  &:active {
+    opacity: 0.8;
+  }
+`;
+
+const RightSidebarButtonIcon = styled.img`
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 `;
 
 const PdfViewer = styled.iframe`
@@ -981,42 +1049,6 @@ export function Preview() {
           </FileNameContainer>
         )}
         <ToolbarSpacer />
-        {auth.isAuthenticated && auth.token && (
-          <>
-            {!isFolder && (
-              <>
-                <Tooltip text="Изменить уровень доступа">
-                  <ActionBtn onClick={changeFileAccess}>
-                    <Icon src={keyIcon} alt="Изменить доступ" />
-                    
-                  </ActionBtn>
-                </Tooltip>
-                <Tooltip text="Удалить файл">
-                  <ActionBtn onClick={deleteFile}>
-                    <Icon src={deleteIcon} alt="Удалить" />
-                    
-                  </ActionBtn>
-                </Tooltip>
-              </>
-            )}
-            {isFolder && node.id !== 'root' && (
-              <Tooltip text="Удалить папку">
-                <ActionBtn onClick={deleteFolder}>
-                  <Icon src={deleteIcon} alt="Удалить папку" />
-                  Удалить папку
-                </ActionBtn>
-              </Tooltip>
-            )}
-          </>
-        )}
-        {isMd && (
-          <Tooltip text="Скачать как PDF">
-            <ActionBtn onClick={downloadMd}>
-              <Icon src={downloadIcon} alt="Скачать PDF" />
-              
-            </ActionBtn>
-          </Tooltip>
-        )}
       </Toolbar>
       <Body>
         {isFolder ? (
@@ -1078,6 +1110,41 @@ export function Preview() {
           </>
         )}
       </Body>
+      <RightSidebar>
+        <RightSidebarTitle>Действия</RightSidebarTitle>
+        {auth.isAuthenticated && auth.token && (
+          <>
+            {!isFolder && (
+              <>
+                <Tooltip text="Изменить уровень доступа">
+                  <RightSidebarButton onClick={changeFileAccess}>
+                    <RightSidebarButtonIcon src={keyIcon} alt="Изменить доступ" />
+                  </RightSidebarButton>
+                </Tooltip>
+                <Tooltip text="Удалить файл">
+                  <RightSidebarButton onClick={deleteFile}>
+                    <RightSidebarButtonIcon src={deleteIcon} alt="Удалить" />
+                  </RightSidebarButton>
+                </Tooltip>
+              </>
+            )}
+            {isFolder && node.id !== 'root' && (
+              <Tooltip text="Удалить папку">
+                <RightSidebarButton onClick={deleteFolder}>
+                  <RightSidebarButtonIcon src={deleteIcon} alt="Удалить папку" />
+                </RightSidebarButton>
+              </Tooltip>
+            )}
+          </>
+        )}
+        {isMd && (
+          <Tooltip text="Скачать как PDF">
+            <RightSidebarButton onClick={downloadMd}>
+              <RightSidebarButtonIcon src={downloadIcon} alt="Скачать PDF" />
+            </RightSidebarButton>
+          </Tooltip>
+        )}
+      </RightSidebar>
     </Wrap>
   );
 }
