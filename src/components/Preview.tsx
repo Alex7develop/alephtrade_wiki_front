@@ -24,6 +24,14 @@ import {
 import { FilesList } from './FilesList';
 import { Tooltip } from './Tooltip';
 
+// Функция для удаления расширения из имени файла
+function removeFileExtension(name: string): string {
+  if (!name) return name;
+  const lastDotIndex = name.lastIndexOf('.');
+  if (lastDotIndex === -1) return name;
+  return name.substring(0, lastDotIndex);
+}
+
 const Wrap = styled.div`
   height: 100%;
   display: grid;
@@ -1036,7 +1044,9 @@ export function Preview() {
               </>
             ) : (
               <>
-                <FileName title={node.name}>{node.name}</FileName>
+                <FileName title={node.name}>
+                  {node.type === 'file' ? removeFileExtension(node.name) : node.name}
+                </FileName>
                 {auth.isAuthenticated && auth.token && node.type !== 'folder' && (
                   <Tooltip text="Редактировать имя файла">
                     <EditIcon onClick={handleStartEdit}>

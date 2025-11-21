@@ -154,6 +154,14 @@ const EditInput = styled.input`
 
 // Убрали иконки файлов - теперь просто статьи без иконок
 
+// Функция для удаления расширения из имени файла
+function removeFileExtension(name: string): string {
+  if (!name) return name;
+  const lastDotIndex = name.lastIndexOf('.');
+  if (lastDotIndex === -1) return name;
+  return name.substring(0, lastDotIndex);
+}
+
 function matches(query: string, name: string) {
   return name.toLowerCase().includes(query.trim().toLowerCase());
 }
@@ -317,7 +325,7 @@ function TreeNode({
           />
         ) : (
           <Name>
-            {node.name}
+            {node.type === 'file' ? removeFileExtension(node.name) : node.name}
             {/* {node.access !== undefined && node.access === 0 && (
               <AccessIndicator src={publicIcon} alt="Публичный документ" title="Публичный документ" />
             )} */}

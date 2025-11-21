@@ -155,6 +155,14 @@ const Type = styled.div`
   text-overflow: ellipsis;
 `;
 
+// Функция для удаления расширения из имени файла
+function removeFileExtension(name: string): string {
+  if (!name) return name;
+  const lastDotIndex = name.lastIndexOf('.');
+  if (lastDotIndex === -1) return name;
+  return name.substring(0, lastDotIndex);
+}
+
 function find(node: any, id: string): any | null {
   if (node.id === id) return node;
   for (const c of node.children ?? []) {
@@ -585,7 +593,7 @@ export function FilesList() {
           ) : (
             <Title>
               {renderItemIcon(f, false)}
-              {f.name}
+              {f.type === 'file' ? removeFileExtension(f.name) : f.name}
               {/* {f.access !== undefined && f.access === 0 && (
                 <AccessIndicator src={publicIcon} alt="Публичный документ" title="Публичный документ" />
               )} */}
