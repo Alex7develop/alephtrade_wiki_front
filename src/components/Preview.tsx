@@ -6,9 +6,12 @@ import rehypeRaw from 'rehype-raw';
 import { jsPDF } from 'jspdf';
 import { marked } from 'marked';
 import html2canvas from 'html2canvas';
+import MDEditor from '@uiw/react-md-editor';
+import '@uiw/react-md-editor/markdown-editor.css';
 import downloadIcon from '/icon/download_15545982.png';
 import deleteIcon from '/icon/dustbin_14492622.png';
 import editIcon from '/icon/edit.svg';
+import editIcon1 from '/icon/edit_file.png';
 import keyIcon from '/icon/key.png';
 import bigLogo from '/icon/big_logo.png';
 import { useDispatch, useSelector } from 'react-redux';
@@ -18,6 +21,7 @@ import {
   deleteFolderAPI,
   renameFileAPI,
   updateFileAccessAPI,
+  updateFileContentAPI,
   selectFile,
   selectFolder,
 } from '@/store/fsSlice';
@@ -30,6 +34,67 @@ function removeFileExtension(name: string): string {
   const lastDotIndex = name.lastIndexOf('.');
   if (lastDotIndex === -1) return name;
   return name.substring(0, lastDotIndex);
+}
+
+// Тип для сохранения оригинальных блоков изображений, которые заменяем заглушками
+interface ImagePlaceholder {
+  placeholder: string;
+  original: string;
+}
+
+// Заменяем строки с base64-изображениями заглушками, чтобы не загружать огромные данные в редактор
+function stripImagePlaceholders(content: string): { sanitizedContent: string; placeholders: ImagePlaceholder[] } {
+  if (!content) {
+    return { sanitizedContent: content, placeholders: [] };
+  }
+
+  const lines = content.split('\n');
+  const placeholders: ImagePlaceholder[] = [];
+
+  const sanitizedLines = lines.map((line) => {
+    const trimmed = line.trim();
+    const lower = trimmed.toLowerCase();
+    const index = placeholders.length;
+    const marker = `<!--IMAGE_PLACEHOLDER_${index}-->`;
+
+    // Ссылочные изображения вида [image1]: data:image/png;base64,...
+    const referenceMatch = trimmed.match(/^\[(image\d+)\]:\s*(.+)$/i);
+    if (referenceMatch) {
+      const [, label, targetRaw] = referenceMatch;
+      const normalizedTarget = targetRaw?.trim() ?? '';
+      const targetWithoutBrackets = normalizedTarget.replace(/^<|>$/g, '');
+      if (targetWithoutBrackets.toLowerCase().startsWith('data:image')) {
+        const placeholderLine = `[${label}]: (изображение скрыто) ${marker}`;
+        placeholders.push({ placeholder: placeholderLine, original: line });
+        return placeholderLine;
+      }
+    }
+
+    // Блоки, начинающиеся на <data:image... или просто содержащие base64 без ссылки
+    if (lower.startsWith('<data:image') || lower.startsWith('data:image')) {
+      const placeholderLine = `> [встроенное изображение скрыто] ${marker}`;
+      placeholders.push({ placeholder: placeholderLine, original: line });
+      return placeholderLine;
+    }
+
+    return line;
+  });
+
+  return {
+    sanitizedContent: sanitizedLines.join('\n'),
+    placeholders,
+  };
+}
+
+// Возвращаем оригинальные блоки изображений перед сохранением
+function restoreImagePlaceholders(content: string, placeholders: ImagePlaceholder[]): string {
+  if (!placeholders.length) return content;
+
+  let restored = content;
+  placeholders.forEach((entry) => {
+    restored = restored.split(entry.placeholder).join(entry.original);
+  });
+  return restored;
 }
 
 const Wrap = styled.div`
@@ -391,6 +456,95 @@ const RightSidebarButtonIcon = styled.img`
   flex-shrink: 0;
 `;
 
+const InlineEditorWrap = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: 100%;
+  
+  .w-md-editor {
+    flex: 1;
+    height: 65vh;
+  }
+`;
+
+const LoadingSpinner = styled.div`
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+  
+  width: 40px;
+  height: 40px;
+  border: 4px solid ${({ theme }) => theme.colors.border};
+  border-top: 4px solid ${({ theme }) => theme.colors.primary};
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 16px;
+`;
+
+const LoadingContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: ${({ theme }) => theme.colors.text};
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+`;
+
+const LoadingText = styled.div`
+  font-size: 14px;
+  color: ${({ theme }) => theme.colors.textMuted};
+  margin-top: 8px;
+`;
+
+const InlineEditorToolbar = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+`;
+
+const InlineEditorButton = styled.button<{ $primary?: boolean }>`
+  padding: 8px 20px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  transition: background-color 0.15s ease;
+  position: relative;
+  z-index: 10;
+  
+  ${({ $primary, theme }) =>
+    $primary
+      ? `
+    background: ${theme.colors.primary};
+    color: white;
+    &:hover:not(:disabled) {
+      background: ${theme.colors.primaryAccent};
+    }
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  `
+      : `
+    background: ${theme.colors.surfaceAlt};
+    color: ${theme.colors.text};
+    &:hover:not(:disabled) {
+      background: ${theme.colors.border};
+    }
+    &:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  `}
+`;
+
 const PdfViewer = styled.iframe`
   width: 100%;
   height: 100%;
@@ -582,6 +736,14 @@ export function Preview() {
   // Состояние для редактирования имени файла
   const [isEditingName, setIsEditingName] = useState(false);
   const [editingNameValue, setEditingNameValue] = useState('');
+  
+  // Состояние для редактирования содержимого файла
+  const [isEditingContent, setIsEditingContent] = useState(false);
+  const [editingContent, setEditingContent] = useState('');
+  const [isSavingContent, setIsSavingContent] = useState(false);
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
+  const [loadingAbortController, setLoadingAbortController] = useState<AbortController | null>(null);
+  const [imagePlaceholders, setImagePlaceholders] = useState<ImagePlaceholder[]>([]);
 
   function find(node: any, id: string | null): any | null {
     if (!id) return null;
@@ -603,11 +765,88 @@ export function Preview() {
     node = searchResults.find((item: any) => item.id === selectedFileId) || null;
   }
   
-  // Сбрасываем режим редактирования при смене файла или при выходе
+  // Сбрасываем режим редактирования имени при смене файла или при выходе
+  // НЕ сбрасываем isEditingContent здесь, чтобы не прерывать загрузку
   useEffect(() => {
     setIsEditingName(false);
     setEditingNameValue('');
+    // НЕ сбрасываем isEditingContent здесь - это делается отдельно
   }, [selectedFileId, selectedFolderId, auth.isAuthenticated, auth.token]);
+  
+  // Загружаем содержимое файла при открытии режима редактирования
+  useEffect(() => {
+    // Отменяем предыдущую загрузку, если она была
+    if (loadingAbortController) {
+      loadingAbortController.abort();
+    }
+    
+    if (isEditingContent && node && node.type === 'file' && node.url) {
+      const isMd = node.mime === 'text/markdown' || node.url?.toLowerCase().endsWith('.md');
+      if (isMd) {
+        // Создаем AbortController для возможности отмены загрузки
+        const abortController = new AbortController();
+        setLoadingAbortController(abortController);
+        
+        // Всегда загружаем содержимое напрямую из URL, чтобы получить актуальную версию
+        setIsLoadingContent(true);
+        setEditingContent(''); // Сбрасываем перед загрузкой
+        
+        console.log('Начинаем загрузку файла для редактирования:', node.url);
+        
+        fetch(node.url, { signal: abortController.signal })
+          .then((r) => {
+            if (!r.ok) throw new Error('Не удалось загрузить файл');
+            return r.text();
+          })
+          .then((t) => {
+            if (!abortController.signal.aborted) {
+              console.log('Файл успешно загружен, размер:', t.length);
+              const { sanitizedContent, placeholders } = stripImagePlaceholders(t);
+              setEditingContent(sanitizedContent);
+              setImagePlaceholders(placeholders);
+              setIsLoadingContent(false);
+              setLoadingAbortController(null);
+            }
+          })
+          .catch((e: any) => {
+            if (e.name === 'AbortError') {
+              // Загрузка была отменена - это нормально
+              console.log('Загрузка файла отменена');
+              return;
+            }
+            console.error('Ошибка загрузки файла для редактирования:', e);
+            if (!abortController.signal.aborted) {
+              setEditingContent('');
+              setImagePlaceholders([]);
+              setIsLoadingContent(false);
+              setLoadingAbortController(null);
+              alert('Не удалось загрузить содержимое файла для редактирования: ' + (e.message || 'Неизвестная ошибка'));
+            }
+          });
+      } else {
+        console.log('Файл не является Markdown, пропускаем загрузку');
+        setIsLoadingContent(false);
+        setEditingContent('');
+        setImagePlaceholders([]);
+      }
+    } else if (!isEditingContent) {
+      // Отменяем загрузку при закрытии модального окна
+      if (loadingAbortController) {
+        loadingAbortController.abort();
+        setLoadingAbortController(null);
+      }
+      // Сбрасываем содержимое при закрытии модального окна
+      setEditingContent('');
+      setImagePlaceholders([]);
+      setIsLoadingContent(false);
+    }
+    
+    // Cleanup при размонтировании или изменении зависимостей
+    return () => {
+      // Не отменяем здесь, так как это может прервать текущую загрузку
+      // Отмена происходит явно при закрытии модального окна
+    };
+  }, [isEditingContent, node?.id, node?.url]);
 
   // Load markdown content when applicable. The hook is always called.
   useEffect(() => {
@@ -1007,7 +1246,58 @@ export function Preview() {
     setIsEditingName(false);
     setEditingNameValue('');
   };
+  
+  // Обработчики для редактирования содержимого файла
+  const handleStartEditContent = () => {
+    console.log('handleStartEditContent вызван', { node, nodeType: node?.type, nodeUrl: node?.url });
+    if (node && node.type === 'file' && (node.mime === 'text/markdown' || node.url?.toLowerCase().endsWith('.md'))) {
+      console.log('Открываем модальное окно редактирования');
+      setIsEditingContent(true);
+    } else {
+      console.warn('Нельзя редактировать этот файл', { node, nodeType: node?.type, nodeMime: node?.mime, nodeUrl: node?.url });
+    }
+  };
+  
+  const handleCloseEditContent = () => {
+    // Отменяем загрузку, если она идет
+    if (loadingAbortController) {
+      loadingAbortController.abort();
+      setLoadingAbortController(null);
+    }
+    setIsEditingContent(false);
+    setEditingContent('');
+    setImagePlaceholders([]);
+    setIsLoadingContent(false);
+  };
+  
+  const handleSaveContent = async () => {
+    if (!node || !node.id || !editingContent.trim()) {
+      return;
+    }
+    
+    const restoredContent = restoreImagePlaceholders(editingContent, imagePlaceholders);
 
+    setIsSavingContent(true);
+    try {
+      await dispatch(updateFileContentAPI({
+        uuid: node.id,
+        content: restoredContent,
+        fileName: node.name
+      })).unwrap();
+      
+      // Закрываем модальное окно после успешного сохранения
+      handleCloseEditContent();
+      
+      // Обновляем выбранный файл, чтобы обновить превью
+      dispatch(selectFile(node.id));
+    } catch (error: any) {
+      console.error('Ошибка сохранения файла:', error);
+      alert(error || 'Ошибка сохранения файла');
+    } finally {
+      setIsSavingContent(false);
+    }
+  };
+  
   return (
     <Wrap>
       <Toolbar>
@@ -1048,11 +1338,20 @@ export function Preview() {
                   {node.type === 'file' ? removeFileExtension(node.name) : node.name}
                 </FileName>
                 {auth.isAuthenticated && auth.token && node.type !== 'folder' && (
-                  <Tooltip text="Редактировать имя файла">
-                    <EditIcon onClick={handleStartEdit}>
-                      <EditIconImg src={editIcon} alt="Редактировать" />
-                    </EditIcon>
-                  </Tooltip>
+                  <>
+                    <Tooltip text="Редактировать имя файла">
+                      <EditIcon onClick={handleStartEdit}>
+                        <EditIconImg src={editIcon} alt="Редактировать имя" />
+                      </EditIcon>
+                    </Tooltip>
+                    {(node.mime === 'text/markdown' || node.url?.toLowerCase().endsWith('.md')) && (
+                      <Tooltip text="Редактировать содержимое файла">
+                        <EditIcon onClick={handleStartEditContent}>
+                          <EditIconImg src={editIcon1} alt="Редактировать содержимое" />
+                        </EditIcon>
+                      </Tooltip>
+                    )}
+                  </>
                 )}
               </>
             )}
@@ -1090,15 +1389,52 @@ export function Preview() {
             {isPdf && node.url ? (
               <PdfViewer src={node.url} title={node.name} />
             ) : isMd ? (
-              <MdWrap>
-                {mdLoading && <div>Загрузка Markdown…</div>}
-                {mdError && (
-                  <div style={{ color: '#ff6b6b' }}>Ошибка: {mdError}</div>
-                )}
-                {!mdLoading && !mdError && (
-                  <HtmlDoc srcDoc={mdHtml} title={node.name} />
-                )}
-              </MdWrap>
+              isEditingContent ? (
+                <InlineEditorWrap>
+                  {isLoadingContent ? (
+                    <LoadingContainer>
+                      <LoadingSpinner />
+                      <LoadingText>Загрузка содержимого файла...</LoadingText>
+                    </LoadingContainer>
+                  ) : (
+                    <>
+                      <MDEditor
+                        value={editingContent}
+                        onChange={(value) => setEditingContent(value || '')}
+                        preview="edit"
+                        hideToolbar={false}
+                        visibleDragbar={false}
+                        data-color-mode={theme.mode}
+                      />
+                      <InlineEditorToolbar>
+                        <InlineEditorButton
+                          onClick={handleCloseEditContent}
+                          disabled={isSavingContent}
+                        >
+                          Отмена
+                        </InlineEditorButton>
+                        <InlineEditorButton
+                          $primary
+                          onClick={handleSaveContent}
+                          disabled={isSavingContent || !editingContent.trim()}
+                        >
+                          {isSavingContent ? 'Сохранение...' : 'Сохранить'}
+                        </InlineEditorButton>
+                      </InlineEditorToolbar>
+                    </>
+                  )}
+                </InlineEditorWrap>
+              ) : (
+                <MdWrap>
+                  {mdLoading && <div>Загрузка Markdown…</div>}
+                  {mdError && (
+                    <div style={{ color: '#ff6b6b' }}>Ошибка: {mdError}</div>
+                  )}
+                  {!mdLoading && !mdError && (
+                    <HtmlDoc srcDoc={mdHtml} title={node.name} />
+                  )}
+                </MdWrap>
+              )
             ) : (
               <UnsupportedFile>
                 <div style={{ fontSize: '48px', marginBottom: '16px' }}>📄</div>
@@ -1155,6 +1491,7 @@ export function Preview() {
           </Tooltip>
         )}
       </RightSidebar>
+      
     </Wrap>
   );
 }

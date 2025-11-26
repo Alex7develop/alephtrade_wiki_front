@@ -218,7 +218,7 @@ function TreeNode({
   let isSelected = false;
   if (isFolder) {
     // Для папок: выделяем если это выбранная папка
-    isSelected = selectedFolderId === node.id;
+      isSelected = selectedFolderId === node.id;
   } else {
     // Для файлов: выделяем если это выбранный файл
     isSelected = selectedFileId === node.id;

@@ -117,6 +117,19 @@ function findNodeById(node: FsNode, id: string): FsNode | null {
   return null;
 }
 
+function findParentFolder(node: FsNode, targetId: string, parent: FsNode | null = null): FsNode | null {
+  if (node.id === targetId) {
+    return parent;
+  }
+  if (node.children) {
+    for (const child of node.children) {
+      const found = findParentFolder(child, targetId, node);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
 function mutateAddFolder(node: FsNode, parentId: string, name: string): boolean {
   if (node.id === parentId && node.type === 'folder') {
     const id = `${name}-${nanoid(6)}`;
@@ -368,6 +381,79 @@ export const renameFileAPI = createAsyncThunk(
       return await res.json();
     } catch (e: any) {
       return rejectWithValue(e.message || 'Ошибка');
+    }
+  }
+);
+
+// Обновление содержимого файла (удаляем старый и загружаем новую версию)
+export const updateFileContentAPI = createAsyncThunk(
+  'fs/updateFileContentAPI',
+  async (
+    { uuid, content, fileName }: { uuid: string; content: string; fileName: string },
+    { dispatch, rejectWithValue, getState }
+  ) => {
+    const state = getState() as { fs: FsState };
+    if (!state.fs.auth.isAuthenticated || !state.fs.auth.token) {
+      return rejectWithValue('Требуется авторизация для редактирования файла');
+    }
+    
+    try {
+      const fileNode = findNodeById(state.fs.root, uuid);
+      if (!fileNode || fileNode.type !== 'file') {
+        return rejectWithValue('Файл не найден');
+      }
+      
+      const parentFolder = findParentFolder(state.fs.root, uuid);
+      const parentId = parentFolder && parentFolder.id !== 'root' ? parentFolder.id : undefined;
+      const access = typeof fileNode.access === 'number' ? (fileNode.access as 0 | 1) : 1;
+      
+      // Гарантируем корректное расширение
+      let finalFileName = fileName;
+      const extension = finalFileName.split('.').pop()?.toLowerCase();
+      if (!extension || (extension !== 'md' && extension !== 'pdf')) {
+        finalFileName = `${finalFileName}.md`;
+      }
+      
+      const mimeType = finalFileName.endsWith('.pdf') ? 'application/pdf' : 'text/markdown';
+      const blob = new Blob([content], { type: mimeType });
+      const file = new File([blob], finalFileName, { type: mimeType });
+      
+      // 1. Удаляем существующий файл
+      const deleteRes = await fetch(
+        `https://api.alephtrade.com/backend_wiki/api/v2/delete_file/${uuid}`,
+        {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        }
+      );
+      if (!deleteRes.ok) {
+        const errorData = await deleteRes.json().catch(() => ({}));
+        throw new Error((errorData && errorData.message) || 'Не удалось удалить предыдущую версию файла');
+      }
+      
+      // 2. Загружаем новую версию
+      const form = new FormData();
+      form.append('file', file);
+      if (parentId) form.append('parent_uuid', parentId);
+      form.append('access', String(access));
+      
+      const uploadRes = await fetch(
+        'https://api.alephtrade.com/backend_wiki/api/v2/upload_file',
+        {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: form
+        }
+      );
+      if (!uploadRes.ok) {
+        const errorData = await uploadRes.json().catch(() => ({}));
+        throw new Error((errorData && errorData.message) || 'Не удалось загрузить обновлённый файл');
+      }
+      
+      dispatch(fetchTree());
+      return await uploadRes.json();
+    } catch (e: any) {
+      return rejectWithValue(e.message || 'Ошибка сохранения файла');
     }
   }
 );
