@@ -552,6 +552,23 @@ const PdfViewer = styled.iframe`
   background: white;
 `;
 
+const VideoWrapper = styled.div`
+  width: 100%;
+  max-width: 960px;
+  aspect-ratio: 16 / 9;
+  background: ${({ theme }) => theme.colors.surfaceAlt};
+  border-radius: ${({ theme }) => theme.radius.sm};
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+`;
+
+const VideoFrame = styled.iframe`
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: inherit;
+`;
+
 const HtmlDoc = styled.iframe`
   width: 100%;
   height: 100%;
@@ -974,6 +991,15 @@ export function Preview() {
   const isPdf = node.mime === 'application/pdf';
   const isMd =
     node.mime === 'text/markdown' || node.url?.toLowerCase().endsWith('.md');
+  const isVideo = !!(
+    node &&
+    node.type === 'file' &&
+    (
+      node.mime?.startsWith('video') ||
+      node.url?.match(/\.(mp4|mov|avi|mkv|webm)(\?|$)/i) ||
+      node.url?.includes('runtime.video.cloud.yandex.net')
+    )
+  );
 
   async function downloadMd() {
     if (!node?.url) return;
@@ -1297,7 +1323,7 @@ export function Preview() {
       setIsSavingContent(false);
     }
   };
-  
+
   return (
     <Wrap>
       <Toolbar>
@@ -1339,8 +1365,8 @@ export function Preview() {
                 </FileName>
                 {auth.isAuthenticated && auth.token && node.type !== 'folder' && (
                   <>
-                    <Tooltip text="Редактировать имя файла">
-                      <EditIcon onClick={handleStartEdit}>
+                  <Tooltip text="Редактировать имя файла">
+                    <EditIcon onClick={handleStartEdit}>
                         <EditIconImg src={editIcon} alt="Редактировать имя" />
                       </EditIcon>
                     </Tooltip>
@@ -1348,15 +1374,15 @@ export function Preview() {
                       <Tooltip text="Редактировать содержимое файла">
                         <EditIcon onClick={handleStartEditContent}>
                           <EditIconImg src={editIcon1} alt="Редактировать содержимое" />
-                        </EditIcon>
-                      </Tooltip>
-                    )}
-                  </>
+                    </EditIcon>
+                  </Tooltip>
                 )}
               </>
             )}
+              </>
+            )}
           </FileNameContainer>
-        )}
+            )}
         <ToolbarSpacer />
       </Toolbar>
       <Body>
@@ -1386,7 +1412,17 @@ export function Preview() {
               )}
             </FileInfo> */}
 
-            {isPdf && node.url ? (
+            {isVideo && node.url ? (
+              <VideoWrapper>
+                <VideoFrame
+                  src={node.url}
+                  title={node.name || 'video'}
+                  allow="autoplay; fullscreen; accelerometer; gyroscope; picture-in-picture; encrypted-media"
+                  allowFullScreen
+                  scrolling="no"
+                />
+              </VideoWrapper>
+            ) : isPdf && node.url ? (
               <PdfViewer src={node.url} title={node.name} />
             ) : isMd ? (
               isEditingContent ? (
@@ -1425,15 +1461,15 @@ export function Preview() {
                   )}
                 </InlineEditorWrap>
               ) : (
-                <MdWrap>
-                  {mdLoading && <div>Загрузка Markdown…</div>}
-                  {mdError && (
-                    <div style={{ color: '#ff6b6b' }}>Ошибка: {mdError}</div>
-                  )}
-                  {!mdLoading && !mdError && (
-                    <HtmlDoc srcDoc={mdHtml} title={node.name} />
-                  )}
-                </MdWrap>
+              <MdWrap>
+                {mdLoading && <div>Загрузка Markdown…</div>}
+                {mdError && (
+                  <div style={{ color: '#ff6b6b' }}>Ошибка: {mdError}</div>
+                )}
+                {!mdLoading && !mdError && (
+                  <HtmlDoc srcDoc={mdHtml} title={node.name} />
+                )}
+              </MdWrap>
               )
             ) : (
               <UnsupportedFile>

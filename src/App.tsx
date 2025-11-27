@@ -9,6 +9,7 @@ import { Sidebar } from '@/components/Sidebar';
 import { Preview } from '@/components/Preview';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { AuthModal } from '@/components/AuthModal';
+import { VideoSharePage } from '@/components/VideoSharePage';
 
 const Layout = styled.div`
   display: grid;
@@ -122,6 +123,7 @@ const MobileOverlay = styled.div<{ $sidebarOpen: boolean }>`
 
 // Функция для поиска файла по UUID в дереве
 function findFileById(node: any, fileId: string): any | null {
+  if (!node) return null;
   if (node.id === fileId && node.type === 'file') {
     return node;
   }
@@ -144,6 +146,16 @@ function findParentFolderForFile(node: any, fileId: string, parent: any = null):
     }
   }
   return null;
+}
+
+function isVideoNode(node: any): boolean {
+  if (!node || node.type !== 'file') return false;
+  const url = node.url?.toLowerCase() ?? '';
+  return (
+    (typeof node.mime === 'string' && node.mime.startsWith('video')) ||
+    url.includes('runtime.video.cloud.yandex.net') ||
+    /\.(mp4|mov|avi|mkv|webm)(\?|$)/i.test(node.url ?? '')
+  );
 }
 
 export default function App() {
@@ -274,12 +286,10 @@ export default function App() {
     if (uuid && hasLoadedTree && root && root.children && root.children.length > 0) {
       const file = findFileById(root, uuid);
       if (file && file.type === 'file') {
-        // Находим родительскую папку и открываем её
         const parentFolder = findParentFolderForFile(root, uuid);
         if (parentFolder) {
           dispatch(selectFolder(parentFolder.id));
         }
-        // Выбираем файл только если он еще не выбран
         if (selectedFileId !== uuid) {
           dispatch(selectFile(uuid));
         }
@@ -332,10 +342,22 @@ export default function App() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
 
+  const isGuestShareView =
+    !auth.isAuthenticated &&
+    typeof uuid === 'string' &&
+    uuid.trim().length > 0;
+
+  if (isGuestShareView) {
+    return <VideoSharePage uuidOverride={uuid!} />;
+  }
+
   return (
     <Routes>
-      <Route path="/:uuid?" element={
-        <Layout>
+      <Route path="/video/:uuid" element={<VideoSharePage />} />
+      <Route
+        path="/:uuid?"
+        element={
+          <Layout>
           <HeaderArea>
             <Header 
               sidebarOpen={sidebarOpen} 
@@ -364,19 +386,20 @@ export default function App() {
               </ContentArea>
             </>
           )}
-          <MobileBottomNav 
+          <MobileBottomNav
             sidebarOpen={sidebarOpen}
             setSidebarOpen={setSidebarOpen}
             onUploadClick={() => setShowUploadModal(true)}
           />
-          <AuthModal 
-            isOpen={showAuthModal} 
+          <AuthModal
+            isOpen={showAuthModal}
             onClose={() => {
               setShowAuthModal(false);
-            }} 
+            }}
           />
         </Layout>
-      } />
+        }
+      />
     </Routes>
   );
 }

@@ -385,79 +385,6 @@ export const renameFileAPI = createAsyncThunk(
   }
 );
 
-// Обновление содержимого файла (удаляем старый и загружаем новую версию)
-export const updateFileContentAPI = createAsyncThunk(
-  'fs/updateFileContentAPI',
-  async (
-    { uuid, content, fileName }: { uuid: string; content: string; fileName: string },
-    { dispatch, rejectWithValue, getState }
-  ) => {
-    const state = getState() as { fs: FsState };
-    if (!state.fs.auth.isAuthenticated || !state.fs.auth.token) {
-      return rejectWithValue('Требуется авторизация для редактирования файла');
-    }
-    
-    try {
-      const fileNode = findNodeById(state.fs.root, uuid);
-      if (!fileNode || fileNode.type !== 'file') {
-        return rejectWithValue('Файл не найден');
-      }
-      
-      const parentFolder = findParentFolder(state.fs.root, uuid);
-      const parentId = parentFolder && parentFolder.id !== 'root' ? parentFolder.id : undefined;
-      const access = typeof fileNode.access === 'number' ? (fileNode.access as 0 | 1) : 1;
-      
-      // Гарантируем корректное расширение
-      let finalFileName = fileName;
-      const extension = finalFileName.split('.').pop()?.toLowerCase();
-      if (!extension || (extension !== 'md' && extension !== 'pdf')) {
-        finalFileName = `${finalFileName}.md`;
-      }
-      
-      const mimeType = finalFileName.endsWith('.pdf') ? 'application/pdf' : 'text/markdown';
-      const blob = new Blob([content], { type: mimeType });
-      const file = new File([blob], finalFileName, { type: mimeType });
-      
-      // 1. Удаляем существующий файл
-      const deleteRes = await fetch(
-        `https://api.alephtrade.com/backend_wiki/api/v2/delete_file/${uuid}`,
-        {
-          method: 'DELETE',
-          headers: getAuthHeaders()
-        }
-      );
-      if (!deleteRes.ok) {
-        const errorData = await deleteRes.json().catch(() => ({}));
-        throw new Error((errorData && errorData.message) || 'Не удалось удалить предыдущую версию файла');
-      }
-      
-      // 2. Загружаем новую версию
-      const form = new FormData();
-      form.append('file', file);
-      if (parentId) form.append('parent_uuid', parentId);
-      form.append('access', String(access));
-      
-      const uploadRes = await fetch(
-        'https://api.alephtrade.com/backend_wiki/api/v2/upload_file',
-        {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: form
-        }
-      );
-      if (!uploadRes.ok) {
-        const errorData = await uploadRes.json().catch(() => ({}));
-        throw new Error((errorData && errorData.message) || 'Не удалось загрузить обновлённый файл');
-      }
-      
-      dispatch(fetchTree());
-      return await uploadRes.json();
-    } catch (e: any) {
-      return rejectWithValue(e.message || 'Ошибка сохранения файла');
-    }
-  }
-);
-
 // Изменение уровня доступа файла через API PUT /api/v2/update_file/{uuid}
 export const updateFileAccessAPI = createAsyncThunk(
   'fs/updateFileAccessAPI',
@@ -488,6 +415,77 @@ export const updateFileAccessAPI = createAsyncThunk(
       return await res.json();
     } catch (e: any) {
       return rejectWithValue(e.message || 'Ошибка');
+    }
+  }
+);
+
+export const updateFileContentAPI = createAsyncThunk(
+  'fs/updateFileContentAPI',
+  async (
+    { uuid, content, fileName }: { uuid: string; content: string; fileName: string },
+    { dispatch, rejectWithValue, getState }
+  ) => {
+    const state = getState() as { fs: FsState };
+    if (!state.fs.auth.isAuthenticated || !state.fs.auth.token) {
+      return rejectWithValue('Требуется авторизация для редактирования файла');
+    }
+
+    try {
+      const fileNode = findNodeById(state.fs.root, uuid);
+      if (!fileNode || fileNode.type !== 'file') {
+        return rejectWithValue('Файл не найден');
+      }
+
+      const parentFolder = findParentFolder(state.fs.root, uuid);
+      const parentId = parentFolder && parentFolder.id !== 'root' ? parentFolder.id : undefined;
+      const access = typeof fileNode.access === 'number' ? (fileNode.access as 0 | 1) : 1;
+
+      let finalFileName = fileName || fileNode.name;
+      const ext = finalFileName.split('.').pop()?.toLowerCase();
+      if (!ext || (ext !== 'md' && ext !== 'pdf')) {
+        finalFileName = `${finalFileName}.md`;
+      }
+
+      const mimeType = finalFileName.toLowerCase().endsWith('.pdf') ? 'application/pdf' : 'text/markdown';
+      const blob = new Blob([content], { type: mimeType });
+      const form = new FormData();
+      form.append('file', blob, finalFileName);
+      form.append('access', String(access));
+      if (parentId) {
+        form.append('parent_uuid', parentId);
+      }
+
+      const deleteRes = await fetch(
+        `https://api.alephtrade.com/backend_wiki/api/v2/delete_file/${uuid}`,
+        {
+          method: 'DELETE',
+          headers: getAuthHeaders()
+        }
+      );
+
+      if (!deleteRes.ok) {
+        const errorData = await deleteRes.json().catch(() => ({}));
+        throw new Error((errorData && errorData.message) || 'Не удалось удалить предыдущую версию файла');
+      }
+
+      const uploadRes = await fetch(
+        'https://api.alephtrade.com/backend_wiki/api/v2/upload_file',
+        {
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: form
+        }
+      );
+
+      if (!uploadRes.ok) {
+        const errorData = await uploadRes.json().catch(() => ({}));
+        throw new Error((errorData && errorData.message) || 'Не удалось загрузить обновлённый файл');
+      }
+
+      dispatch(fetchTree());
+      return await uploadRes.json();
+    } catch (e: any) {
+      return rejectWithValue(e.message || 'Ошибка сохранения файла');
     }
   }
 );
