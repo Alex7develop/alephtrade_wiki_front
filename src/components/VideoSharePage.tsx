@@ -103,11 +103,32 @@ const Spinner = styled.div`
   }
 `;
 
-function findNodeById(node: FsNode, targetId: string): FsNode | null {
-  if (node.id === targetId) return node;
+function extractUuidFromUrl(url?: string | null): string | null {
+  if (!url) return null;
+  try {
+    const clean = url.split('?')[0];
+    const segments = clean.split('/');
+    const last = segments.pop();
+    if (!last) return null;
+    const dotIndex = last.lastIndexOf('.');
+    return dotIndex === -1 ? last : last.slice(0, dotIndex);
+  } catch {
+    return null;
+  }
+}
+
+function findNodeByShareId(node: FsNode, targetId: string): FsNode | null {
+  const normalizedTarget = targetId.toLowerCase();
+  if (node.type === 'file') {
+    const shareId = extractUuidFromUrl(node.url)?.toLowerCase();
+    const nodeId = node.id?.toLowerCase?.() ?? node.id;
+    if (nodeId === normalizedTarget || (!!shareId && shareId === normalizedTarget)) {
+      return node;
+    }
+  }
   if (node.children) {
     for (const child of node.children) {
-      const found = findNodeById(child, targetId);
+      const found = findNodeByShareId(child, targetId);
       if (found) return found;
     }
   }
@@ -150,7 +171,7 @@ export function VideoSharePage({ uuidOverride }: VideoSharePageProps) {
 
   const node = useMemo(() => {
     if (!uuid) return null;
-    return findNodeById(root, uuid);
+    return findNodeByShareId(root, uuid);
   }, [root, uuid]);
 
   const isVideo = isVideoNode(node);

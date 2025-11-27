@@ -166,13 +166,31 @@ function matches(query: string, name: string) {
   return name.toLowerCase().includes(query.trim().toLowerCase());
 }
 
-// Функция для поиска родительской папки файла
-function findParentFolder(root: any, fileId: string, parent: any = null): any | null {
-  if (root.id === fileId) return parent;
+function findNode(root: any, targetId: string): any | null {
+  if (!root) return null;
+  if (root.id === targetId) return root;
   if (root.children) {
     for (const child of root.children) {
-      const found = findParentFolder(child, fileId, root);
-      if (found !== null) return found;
+      const found = findNode(child, targetId);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function collectFolderPath(root: any, targetId: string, trail: string[] = []): string[] | null {
+  if (!root) return null;
+  if (root.id === targetId) {
+    return trail;
+  }
+  if (root.children) {
+    for (const child of root.children) {
+      const nextTrail =
+        root.type === 'folder' ? [...trail, root.id] : [...trail];
+      const result = collectFolderPath(child, targetId, nextTrail);
+      if (result) {
+        return result;
+      }
     }
   }
   return null;
@@ -361,6 +379,8 @@ export function Sidebar() {
   const dispatch: any = useDispatch();
   const root = useSelector((s: RootState) => s.fs.root);
   const auth = useSelector((s: RootState) => s.fs.auth);
+  const selectedFileId = useSelector((s: RootState) => s.fs.selectedFileId);
+  const selectedFolderId = useSelector((s: RootState) => s.fs.selectedFolderId);
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set(['root']));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingValue, setEditingValue] = useState<string>('');
@@ -384,6 +404,26 @@ export function Sidebar() {
       inputRef.current.select();
     }
   }, [editingId]);
+
+  // Авто-раскрытие ветки при выборе файла или папки (например, через прямую ссылку)
+  useEffect(() => {
+    const targetId = selectedFileId || selectedFolderId;
+    if (!targetId) return;
+    const path = collectFolderPath(root, targetId);
+    if (!path) return;
+
+    const targetNode = findNode(root, targetId);
+    const foldersToExpand = [...path];
+    if (targetNode?.type === 'folder') {
+      foldersToExpand.push(targetId);
+    }
+
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      foldersToExpand.forEach((id) => next.add(id));
+      return next;
+    });
+  }, [root, selectedFileId, selectedFolderId]);
 
   // Функция для сохранения переименования
   const commitRename = async (id: string) => {

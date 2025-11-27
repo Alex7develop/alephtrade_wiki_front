@@ -121,15 +121,34 @@ const MobileOverlay = styled.div<{ $sidebarOpen: boolean }>`
   }
 `;
 
-// Функция для поиска файла по UUID в дереве
-function findFileById(node: any, fileId: string): any | null {
+function extractUuidFromUrl(url?: string | null): string | null {
+  if (!url) return null;
+  try {
+    const clean = url.split('?')[0];
+    const segments = clean.split('/');
+    const last = segments.pop();
+    if (!last) return null;
+    const dotIndex = last.lastIndexOf('.');
+    return dotIndex === -1 ? last : last.slice(0, dotIndex);
+  } catch {
+    return null;
+  }
+}
+
+// Функция для поиска узла (файла или папки) по UUID (id или object_uuid в S3 ссылке)
+function findNodeByShareId(node: any, shareId: string): any | null {
   if (!node) return null;
-  if (node.id === fileId && node.type === 'file') {
+  const normalizedTarget = shareId.toLowerCase();
+  const nodeShareId = extractUuidFromUrl(node.url)?.toLowerCase();
+  const nodeId = typeof node.id === 'string' ? node.id.toLowerCase() : '';
+  const isMatch =
+    nodeId === normalizedTarget || (!!nodeShareId && nodeShareId === normalizedTarget);
+  if (isMatch) {
     return node;
   }
   if (node.children) {
     for (const child of node.children) {
-      const found = findFileById(child, fileId);
+      const found = findNodeByShareId(child, shareId);
       if (found) return found;
     }
   }
@@ -139,6 +158,10 @@ function findFileById(node: any, fileId: string): any | null {
 // Функция для поиска родительской папки файла
 function findParentFolderForFile(node: any, fileId: string, parent: any = null): any | null {
   if (node.id === fileId) return parent;
+  const nodeShareId = extractUuidFromUrl(node.url);
+  if (nodeShareId && nodeShareId === fileId) {
+    return parent;
+  }
   if (node.children) {
     for (const child of node.children) {
       const found = findParentFolderForFile(child, fileId, node);
@@ -284,18 +307,16 @@ export default function App() {
   // Обрабатываем UUID из URL при загрузке дерева
   useEffect(() => {
     if (uuid && hasLoadedTree && root && root.children && root.children.length > 0) {
-      const file = findFileById(root, uuid);
-      if (file && file.type === 'file') {
-        const parentFolder = findParentFolderForFile(root, uuid);
-        if (parentFolder) {
-          dispatch(selectFolder(parentFolder.id));
-        }
-        if (selectedFileId !== uuid) {
-          dispatch(selectFile(uuid));
+      const node = findNodeByShareId(root, uuid);
+      if (node) {
+        if (node.type === 'file' && selectedFileId !== node.id) {
+          dispatch(selectFile(node.id));
+        } else if (node.type === 'folder' && selectedFolderId !== node.id && node.id !== 'root') {
+          dispatch(selectFolder(node.id));
         }
       }
     }
-  }, [uuid, hasLoadedTree, root, dispatch, selectedFileId]);
+  }, [uuid, hasLoadedTree, root, dispatch, selectedFileId, selectedFolderId]);
 
   // Синхронизируем URL при изменении selectedFileId или selectedFolderId
   useEffect(() => {
@@ -308,33 +329,20 @@ export default function App() {
                       selectedFileId.trim() !== '';
     
     if (hasFileId) {
-      // Если файл выбран и URL не совпадает - обновляем URL
+      // Если файл выбран и URL не совпадает - обновляем URL на UUID файла
       if (selectedFileId !== uuid) {
         navigate(`/${selectedFileId}`, { replace: true });
       }
-    } else {
-      // Если файл не выбран (выбрана папка или файл сброшен), но в URL есть UUID - очищаем URL
-      // Это происходит когда пользователь кликает на папку (selectFolder устанавливает selectedFileId = null)
-      if (uuid) {
-        navigate('/', { replace: true });
+    } else if (selectedFolderId && selectedFolderId !== 'root') {
+      // Если выбрана папка (не root) и URL не совпадает - обновляем URL на UUID папки
+      if (selectedFolderId !== uuid) {
+        navigate(`/${selectedFolderId}`, { replace: true });
       }
-    }
-  }, [selectedFileId, uuid, hasLoadedTree, navigate]);
-  
-  // Дополнительная проверка: если выбранная папка изменилась и файл не выбран - очищаем URL
-  useEffect(() => {
-    if (!hasLoadedTree) return;
-    
-    const hasFileId = selectedFileId !== null && 
-                      selectedFileId !== undefined && 
-                      typeof selectedFileId === 'string' && 
-                      selectedFileId.trim() !== '';
-    
-    // Если папка выбрана, но файл не выбран, и в URL есть UUID - очищаем URL
-    if (selectedFolderId && !hasFileId && uuid) {
+    } else if (selectedFolderId === 'root' && uuid) {
+      // Если выбрана root папка, очищаем URL
       navigate('/', { replace: true });
     }
-  }, [selectedFolderId, selectedFileId, uuid, hasLoadedTree, navigate]);
+  }, [selectedFileId, selectedFolderId, uuid, hasLoadedTree, navigate]);
 
   // Функция для открытия модального окна загрузки
   // Передадим эту функцию через ref или создадим контекст

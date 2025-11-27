@@ -117,9 +117,25 @@ function findNodeById(node: FsNode, id: string): FsNode | null {
   return null;
 }
 
+function extractUuidFromUrl(url?: string | null): string | null {
+  if (!url) return null;
+  const clean = url.split('?')[0];
+  const segments = clean.split('/');
+  const last = segments.pop();
+  if (!last) return null;
+  const dotIndex = last.lastIndexOf('.');
+  return dotIndex === -1 ? last : last.slice(0, dotIndex);
+}
+
 function findParentFolder(node: FsNode, targetId: string, parent: FsNode | null = null): FsNode | null {
   if (node.id === targetId) {
     return parent;
+  }
+  if (node.type === 'file' && node.url) {
+    const shareId = extractUuidFromUrl(node.url);
+    if (shareId && shareId === targetId) {
+      return parent;
+    }
   }
   if (node.children) {
     for (const child of node.children) {
@@ -218,7 +234,7 @@ export const fetchTree = createAsyncThunk('fs/fetchTree', async (access: 0 | 1 |
   const state = getState() as { fs: FsState };
   const isAuthenticated = state.fs.auth.isAuthenticated && !!state.fs.auth.token;
   
-  // Если не авторизован, всегда используем access: 0 для получения только публичных файлов
+  // Если не авторизован, всегда используем access: 0 (публичные файлы)
   // Если авторизован и access передан - используем его, иначе загружаем все файлы
   const accessLevel = isAuthenticated ? access : 0;
   
@@ -920,9 +936,11 @@ const fsSlice = createSlice({
       .addCase(fetchTree.fulfilled, (state, action: PayloadAction<FsNode[]>) => {
         state.loading = false;
         state.root.children = action.payload;
-        // при первой загрузке остаёмся на корне
-        state.selectedFolderId = 'root';
-        state.selectedFileId = null;
+        // При первой загрузке остаёмся на корне, но не сбрасываем выбранный файл,
+        // чтобы прямые ссылки продолжали работать после повторных обновлений дерева
+        if (!state.selectedFolderId && !state.selectedFileId) {
+          state.selectedFolderId = 'root';
+        }
       })
       .addCase(fetchTree.rejected, (state, action) => {
         state.loading = false;
