@@ -9,7 +9,7 @@ import lockIcon from '/icon/zamok.png';
 // import publicIcon from '/icon/open_zamok.png';
 
 const TreeWrap = styled.div`
-  padding: 12px;
+  padding: 6px;
   background: ${({ theme }) => theme.colors.surface};
   border-right: 1px solid ${({ theme }) => theme.colors.border};
   height: 100%;
@@ -22,12 +22,12 @@ const TreeWrap = styled.div`
   
   /* Мобильные устройства */
   @media (max-width: 768px) {
-    padding: 10px;
+    padding: 6px;
     width: 100%;
   }
   
   @media (max-width: 480px) {
-    padding: 8px;
+    padding: 4px;
   }
 `;
 
@@ -35,9 +35,9 @@ const ItemRow = styled.div<{ selected?: boolean }>`
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 32px;
+  min-height: 24px;
   height: auto;
-  padding: 6px 8px;
+  padding: 4px 6px;
   border-radius: 0;
   cursor: pointer;
   color: ${({ theme }) => theme.colors.text};
@@ -66,14 +66,14 @@ const ItemRow = styled.div<{ selected?: boolean }>`
   
   /* Мобильные устройства - увеличенные touch targets */
   @media (max-width: 768px) {
-    min-height: 44px;
-    padding: 10px 8px;
+    min-height: 36px;
+    padding: 8px 6px;
     margin-bottom: 0;
   }
   
   @media (max-width: 480px) {
-    min-height: 48px;
-    padding: 12px 8px;
+    min-height: 40px;
+    padding: 10px 6px;
     margin-bottom: 0;
   }
 `;
@@ -249,7 +249,7 @@ function TreeNode({
       <ItemRow
         selected={isSelected}
         style={{
-          paddingLeft: 8 + level * 16,
+          paddingLeft: 4 + level * 12,
           boxShadow: dropTargetId === node.id ? 'inset 0 0 0 2px #16aaff' : undefined,
           background: dropTargetId === node.id ? 'rgba(22,170,255,0.11)' : undefined,
         }}

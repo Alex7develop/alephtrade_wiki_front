@@ -106,6 +106,11 @@ export function MobileBottomNav({
   onUploadClick
 }: MobileBottomNavProps) {
   const { toggle: toggleTheme } = useThemeMode();
+  const auth = useSelector((s: RootState) => s.fs.auth);
+  
+  // Проверяем, можно ли показывать кнопку загрузки
+  // Показываем только если пользователь авторизован И имеет уровень доступа access: 2
+  const canUpload = auth.isAuthenticated && auth.user && auth.user.access === 2;
   
   // Обработчик для кнопки "Меню" - открывает/закрывает sidebar
   const handleMenu = () => {
@@ -129,10 +134,12 @@ export function MobileBottomNav({
         <Label>Меню</Label>
       </NavButton>
       
-      <NavButton onClick={handleUpload} title="Загрузить файл">
-        <Icon src={cloudIcon} alt="Загрузить файл" />
-        <Label>Загрузить файл</Label>
-      </NavButton>
+      {canUpload && (
+        <NavButton onClick={handleUpload} title="Загрузить файл">
+          <Icon src={cloudIcon} alt="Загрузить файл" />
+          <Label>Загрузить файл</Label>
+        </NavButton>
+      )}
       
       <NavButton onClick={handleTheme} title="Сменить тему">
         <Icon src={themeIcon} alt="Сменить тему" />

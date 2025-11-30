@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 import { useDispatch, useSelector } from 'react-redux';
-import { useParams, useNavigate, Routes, Route } from 'react-router-dom';
+import { useLocation, useNavigate, Routes, Route } from 'react-router-dom';
 import type { RootState } from '@/store/store';
 import { fetchTree, getUser, selectFile, selectFolder } from '@/store/fsSlice';
 import { useEffect, useState } from 'react';
@@ -14,7 +14,7 @@ import { VideoSharePage } from '@/components/VideoSharePage';
 const Layout = styled.div`
   display: grid;
   grid-template-rows: 56px 1fr;
-  grid-template-columns: 380px 1fr;
+  grid-template-columns: 440px 1fr;
   grid-template-areas:
     'header header'
     'sidebar content';
@@ -184,7 +184,10 @@ function isVideoNode(node: any): boolean {
 export default function App() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { uuid } = useParams<{ uuid?: string }>();
+  const location = useLocation();
+  const pathSegments = location.pathname.split('/').filter(Boolean);
+  const isVideoRoute = pathSegments[0] === 'video';
+  const uuid = !isVideoRoute && pathSegments.length > 0 ? pathSegments[0] : undefined;
   const { loading, error, auth, root, selectedFileId, selectedFolderId } = useSelector((s: RootState) => s.fs);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -304,19 +307,17 @@ export default function App() {
     }
   }, [auth.token, auth.user, dispatch]);
 
-  // Обрабатываем UUID из URL при загрузке дерева
+  // Обрабатываем UUID из URL при загрузке дерева (однократно для текущего uuid)
   useEffect(() => {
-    if (uuid && hasLoadedTree && root && root.children && root.children.length > 0) {
-      const node = findNodeByShareId(root, uuid);
-      if (node) {
-        if (node.type === 'file' && selectedFileId !== node.id) {
-          dispatch(selectFile(node.id));
-        } else if (node.type === 'folder' && selectedFolderId !== node.id && node.id !== 'root') {
-          dispatch(selectFolder(node.id));
-        }
-      }
+    if (!uuid || !hasLoadedTree || !root || !root.children || root.children.length === 0) return;
+    const node = findNodeByShareId(root, uuid);
+    if (!node) return;
+    if (node.type === 'file') {
+      dispatch(selectFile(node.id));
+    } else if (node.type === 'folder' && node.id !== 'root') {
+      dispatch(selectFolder(node.id));
     }
-  }, [uuid, hasLoadedTree, root, dispatch, selectedFileId, selectedFolderId]);
+  }, [uuid, hasLoadedTree, root, dispatch]);
 
   // Синхронизируем URL при изменении selectedFileId или selectedFolderId
   useEffect(() => {
@@ -338,7 +339,7 @@ export default function App() {
       if (selectedFolderId !== uuid) {
         navigate(`/${selectedFolderId}`, { replace: true });
       }
-    } else if (selectedFolderId === 'root' && uuid) {
+    } else if (selectedFolderId === 'root' && !uuid) {
       // Если выбрана root папка, очищаем URL
       navigate('/', { replace: true });
     }
@@ -349,15 +350,6 @@ export default function App() {
   // Пока что создадим простой способ через событие или состояние
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
-
-  const isGuestShareView =
-    !auth.isAuthenticated &&
-    typeof uuid === 'string' &&
-    uuid.trim().length > 0;
-
-  if (isGuestShareView) {
-    return <VideoSharePage uuidOverride={uuid!} />;
-  }
 
   return (
     <Routes>
