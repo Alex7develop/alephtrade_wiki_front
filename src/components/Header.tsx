@@ -374,11 +374,28 @@ const UploadModal = styled.div`
   padding: 20px;
   min-width: 400px;
   max-width: 90vw;
+  max-height: 90vh;
+  overflow-y: auto;
   position: relative;
   display: flex; 
   flex-direction: column; 
   gap: 12px;
   border: 1px solid ${({ theme }) => theme.colors.border};
+
+  @media (max-width: 600px) {
+    padding: 12px;
+    min-width: 200px;
+    max-width: 97vw;
+    max-height: 80vh;
+    font-size: 15px;
+  }
+
+  @media (max-width: 400px) {
+    min-width: unset;
+    max-width: 99vw;
+    padding: 8px;
+    font-size: 14px;
+  }
 `;
 const UploadTitle = styled.div`
   font-weight: 500;
@@ -657,15 +674,21 @@ export function Header({
   const onUpload = async () => {
     setUploadError(null);
     if (!file) { setUploadError('Выберите файл'); return; }
-    if (!/\.(pdf|md)$/i.test(file.name)) {
-      setUploadError('Можно загрузить только PDF или MD'); return;
+    // Разрешаем загрузку PDF, MD и видео файлов
+    if (!/\.(pdf|md|mp4|mov|avi|mkv|webm)$/i.test(file.name)) {
+      setUploadError('Можно загрузить только PDF, MD или видео файлы (MP4, MOV, AVI, MKV, WEBM)'); return;
     }
     setUploading(true);
     try {
-      await dispatch(uploadFileAPI({ file, parentId: selectedFolderId, access: uploadAccess }));
-      setUploadOpen(false); 
-      setFile(null);
-      setUploadAccess(1); // Сбрасываем на значение по умолчанию
+      const result = await dispatch(uploadFileAPI({ file, parentId: selectedFolderId, access: uploadAccess }));
+      if (uploadFileAPI.fulfilled.match(result)) {
+        setUploadOpen(false); 
+        setFile(null);
+        setUploadAccess(1); // Сбрасываем на значение по умолчанию
+      } else if (uploadFileAPI.rejected.match(result)) {
+        const errorMessage = result.payload as string || 'Ошибка загрузки файла';
+        setUploadError(errorMessage);
+      }
     } catch (e: any) {
       setUploadError(e?.message || 'Ошибка загрузки');
     } finally {
@@ -769,7 +792,7 @@ export function Header({
             <UploadTitle>Загрузка файла</UploadTitle>
             <FileField
               type="file"
-              accept=".md,.pdf"
+              accept=".md,.pdf,.mp4,.mov,.avi,.mkv,.webm"
               ref={fileInput}
               disabled={uploading}
               onChange={onChooseFile}

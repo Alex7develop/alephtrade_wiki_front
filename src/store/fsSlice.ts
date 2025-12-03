@@ -192,37 +192,59 @@ function mapApiToFs(node: ApiNode): FsNode {
   
   // Определяем MIME тип из URL для файлов
   if (node.type === 'file' && node.s3_url) {
-    const extension = node.s3_url.split('.').pop()?.toLowerCase();
-    switch (extension) {
-      case 'pdf':
-        fsNode.mime = 'application/pdf';
-        break;
-      case 'md':
-        fsNode.mime = 'text/markdown';
-        break;
-      case 'doc':
-      case 'docx':
-        fsNode.mime = 'application/msword';
-        break;
-      case 'xls':
-      case 'xlsx':
-        fsNode.mime = 'application/vnd.ms-excel';
-        break;
-      case 'txt':
-        fsNode.mime = 'text/plain';
-        break;
-      case 'jpg':
-      case 'jpeg':
-        fsNode.mime = 'image/jpeg';
-        break;
-      case 'png':
-        fsNode.mime = 'image/png';
-        break;
-      case 'gif':
-        fsNode.mime = 'image/gif';
-        break;
-      default:
-        fsNode.mime = extension || 'unknown';
+    const lowerUrl = node.s3_url.toLowerCase();
+    
+    // Видео от Яндекс Cloud Runtime не имеют расширения, определяем по URL
+    if (lowerUrl.includes('runtime.video.cloud.yandex.net')) {
+      fsNode.mime = 'video/yandex-runtime';
+    } else {
+      const extension = lowerUrl.split('.').pop()?.split('?')[0];
+      switch (extension) {
+        case 'pdf':
+          fsNode.mime = 'application/pdf';
+          break;
+        case 'md':
+          fsNode.mime = 'text/markdown';
+          break;
+        case 'doc':
+        case 'docx':
+          fsNode.mime = 'application/msword';
+          break;
+        case 'xls':
+        case 'xlsx':
+          fsNode.mime = 'application/vnd.ms-excel';
+          break;
+        case 'txt':
+          fsNode.mime = 'text/plain';
+          break;
+        case 'jpg':
+        case 'jpeg':
+          fsNode.mime = 'image/jpeg';
+          break;
+        case 'png':
+          fsNode.mime = 'image/png';
+          break;
+        case 'gif':
+          fsNode.mime = 'image/gif';
+          break;
+        case 'mp4':
+          fsNode.mime = 'video/mp4';
+          break;
+        case 'mov':
+          fsNode.mime = 'video/quicktime';
+          break;
+        case 'avi':
+          fsNode.mime = 'video/x-msvideo';
+          break;
+        case 'mkv':
+          fsNode.mime = 'video/x-matroska';
+          break;
+        case 'webm':
+          fsNode.mime = 'video/webm';
+          break;
+        default:
+          fsNode.mime = extension || 'unknown';
+      }
     }
   }
   
@@ -336,8 +358,11 @@ export const uploadFileAPI = createAsyncThunk(
     
     try {
       const form = new FormData();
+      // Добавляем файл - браузер сам установит правильный Content-Type
       form.append('file', file);
-      if (parentId && parentId !== 'root') form.append('parent_uuid', parentId);
+      if (parentId && parentId !== 'root') {
+        form.append('parent_uuid', parentId);
+      }
       
       // Добавляем access только если он передан, иначе используем значение по умолчанию
       const accessValue = typeof access === 'number' ? access : 1;
@@ -348,6 +373,15 @@ export const uploadFileAPI = createAsyncThunk(
       if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
+      // НЕ устанавливаем Content-Type для FormData - браузер сам установит multipart/form-data с boundary
+      
+      console.log('📤 Загрузка файла:', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        parentId: parentId && parentId !== 'root' ? parentId : undefined,
+        access: accessValue
+      });
       
       const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/upload_file', {
         method: 'POST',
@@ -356,7 +390,20 @@ export const uploadFileAPI = createAsyncThunk(
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data && data.message) || 'Ошибка загрузки файла');
+        // Обрабатываем разные форматы ответа об ошибке
+        let errorMessage = 'Ошибка загрузки файла';
+        if (data) {
+          if (typeof data.message === 'string') {
+            errorMessage = data.message;
+          } else if (Array.isArray(data.message)) {
+            errorMessage = data.message.join(', ');
+          } else if (data['0']) {
+            errorMessage = data['0'];
+          } else if (data.error) {
+            errorMessage = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+          }
+        }
+        throw new Error(errorMessage);
       }
       // обновить дерево после загрузки
       dispatch(fetchTree());
