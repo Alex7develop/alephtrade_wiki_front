@@ -17,10 +17,20 @@ export function useThemeMode(): Ctx {
 }
 
 export function ThemeModeProvider({ children }: { children: React.ReactNode }) {
-  const [mode, setMode] = useState<'light' | 'dark'>(() => (localStorage.getItem('theme') as 'light' | 'dark') || 'dark');
-  useEffect(() => { localStorage.setItem('theme', mode); }, [mode]);
-  const toggle = useCallback(() => setMode((m) => (m === 'light' ? 'dark' : 'light')), []);
-  const theme: AppTheme = useMemo(() => (mode === 'light' ? lightTheme : darkTheme), [mode]);
+  const [mode, setMode] = useState<'light' | 'dark'>(
+    () => (localStorage.getItem('theme') as 'light' | 'dark') || 'light'
+  );
+  useEffect(() => {
+    localStorage.setItem('theme', mode);
+  }, [mode]);
+  const toggle = useCallback(
+    () => setMode((m) => (m === 'light' ? 'dark' : 'light')),
+    []
+  );
+  const theme: AppTheme = useMemo(
+    () => (mode === 'light' ? lightTheme : darkTheme),
+    [mode]
+  );
   const value = useMemo(() => ({ mode, setMode, toggle }), [mode, toggle]);
   return (
     <ThemeModeContext.Provider value={value}>

@@ -77,9 +77,9 @@ const SidebarArea = styled.aside<{ $sidebarOpen: boolean }>`
 
   /* Очень маленькие экраны */
   @media (max-width: 480px) {
-    top: 50px;
-    height: calc(100vh - 50px);
-    width: 260px;
+    top: 0px;
+    height: calc(100vh - 50px -10px);
+    width: 300px;
   }
 `;
 
