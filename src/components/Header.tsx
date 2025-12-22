@@ -675,8 +675,9 @@ export function Header({
     setUploadError(null);
     if (!file) { setUploadError('Выберите файл'); return; }
     // Разрешаем загрузку PDF, MD и видео файлов
-    if (!/\.(pdf|md|mp4|mov|avi|mkv|webm)$/i.test(file.name)) {
-      setUploadError('Можно загрузить только PDF, MD или видео файлы (MP4, MOV, AVI, MKV, WEBM)'); return;
+    if (!/\.(pdf|md|mp4|mov|avi|mkv|webm|png|jpg|jpeg|gif|webp)$/i.test(file.name)) {
+      setUploadError('Можно загрузить PDF, MD, видео или изображение (PNG, JPG, JPEG, GIF, WEBP)');
+      return;
     }
     setUploading(true);
     try {
@@ -792,7 +793,7 @@ export function Header({
             <UploadTitle>Загрузка файла</UploadTitle>
             <FileField
               type="file"
-              accept=".md,.pdf,.mp4,.mov,.avi,.mkv,.webm"
+              accept=".md,.pdf,.mp4,.mov,.avi,.mkv,.webm,.png,.jpg,.jpeg,.gif,.webp"
               ref={fileInput}
               disabled={uploading}
               onChange={onChooseFile}

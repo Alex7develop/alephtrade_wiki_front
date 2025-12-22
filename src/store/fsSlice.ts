@@ -10,6 +10,16 @@ export interface FsNode {
   mime?: string; // for files, optional
   url?: string; // for files, optional (s3 url)
   access?: number; // 0 = приватный, 1 = публичный
+  attachments?: {
+    images?: string[]; // массив URL изображений
+  };
+  chunk_result_url?: string | null; // URL на HTML страницу RAG
+  created_at?: string; // Дата создания файла
+  updated_at?: string; // Дата обновления файла
+  rag_actual?: boolean; // Актуальный файл из RAG
+  rag_finished?: string | null; // Дата завершения RAG обработки
+  rag_in_progress?: boolean; // Файл в очереди в RAG
+  rag_started?: string | null; // Дата начала RAG обработки
 }
 
 export interface User {
@@ -178,6 +188,16 @@ type ApiNode = {
   s3_url?: string;
   access?: number | string; // может быть числом или строкой из API
   children?: ApiNode[];
+  attachments?: {
+    images?: string[]; // массив URL изображений
+  } | []; // может быть пустым массивом
+  chunk_result_url?: string | null; // URL на HTML страницу RAG
+  created_at?: string; // Дата создания файла
+  updated_at?: string; // Дата обновления файла
+  rag_actual?: boolean; // Актуальный файл из RAG
+  rag_finished?: string | null; // Дата завершения RAG обработки
+  rag_in_progress?: boolean; // Файл в очереди в RAG
+  rag_started?: string | null; // Дата начала RAG обработки
 };
 
 function mapApiToFs(node: ApiNode): FsNode {
@@ -187,7 +207,18 @@ function mapApiToFs(node: ApiNode): FsNode {
     type: node.type,
     url: node.s3_url,
     access: node.access !== undefined ? Number(node.access) : undefined,
-    children: node.children?.map(mapApiToFs)
+    children: node.children?.map(mapApiToFs),
+    // Маппим attachments: если это объект с images, берем его; если пустой массив, игнорируем
+    attachments: node.attachments && !Array.isArray(node.attachments) && node.attachments.images
+      ? { images: node.attachments.images }
+      : undefined,
+    chunk_result_url: node.chunk_result_url || undefined,
+    created_at: node.created_at,
+    updated_at: node.updated_at,
+    rag_actual: node.rag_actual,
+    rag_finished: node.rag_finished || undefined,
+    rag_in_progress: node.rag_in_progress,
+    rag_started: node.rag_started || undefined
   };
   
   // Определяем MIME тип из URL для файлов
@@ -357,6 +388,31 @@ export const uploadFileAPI = createAsyncThunk(
     }
     
     try {
+      // Определяем уровень доступа: если явно передан - используем его,
+      // иначе берем из родительской папки
+      let accessValue: 0 | 1;
+      if (typeof access === 'number') {
+        // Если access явно передан, используем его
+        accessValue = access as 0 | 1;
+      } else {
+        // Если access не передан, берем из родительской папки
+        if (parentId && parentId !== 'root') {
+          const parentNode = findNodeById(state.fs.root, parentId);
+          if (parentNode && parentNode.type === 'folder') {
+            // Берем уровень доступа из папки
+            accessValue = typeof parentNode.access === 'number' 
+              ? (parentNode.access as 0 | 1) 
+              : 1; // По умолчанию приватный, если не указан
+          } else {
+            // Если папка не найдена, используем значение по умолчанию
+            accessValue = 1;
+          }
+        } else {
+          // Если это root или parentId не указан, используем значение по умолчанию
+          accessValue = 1;
+        }
+      }
+
       const form = new FormData();
       // Добавляем файл - браузер сам установит правильный Content-Type
       form.append('file', file);
@@ -364,8 +420,6 @@ export const uploadFileAPI = createAsyncThunk(
         form.append('parent_uuid', parentId);
       }
       
-      // Добавляем access только если он передан, иначе используем значение по умолчанию
-      const accessValue = typeof access === 'number' ? access : 1;
       form.append('access', String(accessValue));
 
       const token = getAuthToken();
@@ -414,7 +468,73 @@ export const uploadFileAPI = createAsyncThunk(
   }
 );
 
-// Переименование файла через API PATCH /api/v2/update_file/{uuid}
+// Thunk — загрузка изображения в MD файл через POST /api/v2/upload_file_image
+export const uploadFileImageAPI = createAsyncThunk(
+  'fs/uploadFileImageAPI',
+  async (
+    { parentUuid, file }: { parentUuid: string; file: File },
+    { dispatch, rejectWithValue, getState }
+  ) => {
+    // Проверяем авторизацию
+    const state = getState() as { fs: FsState };
+    if (!state.fs.auth.isAuthenticated || !state.fs.auth.token) {
+      return rejectWithValue('Требуется авторизация для загрузки изображения');
+    }
+    
+    // Проверяем, что это изображение
+    if (!file.type.startsWith('image/')) {
+      return rejectWithValue('Можно загрузить только изображения');
+    }
+    
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('parent_uuid', parentUuid);
+
+      const token = getAuthToken();
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      console.log('📤 Загрузка изображения в MD файл:', {
+        fileName: file.name,
+        fileSize: file.size,
+        fileType: file.type,
+        parentUuid
+      });
+      
+      const res = await fetch('https://api.alephtrade.com/backend_wiki/api/v2/upload_file_image', {
+        method: 'POST',
+        headers,
+        body: form
+      });
+      
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        let errorMessage = 'Ошибка загрузки изображения';
+        if (data) {
+          if (typeof data.message === 'string') {
+            errorMessage = data.message;
+          } else if (Array.isArray(data.message)) {
+            errorMessage = data.message.join(', ');
+          } else if (data.error) {
+            errorMessage = typeof data.error === 'string' ? data.error : JSON.stringify(data.error);
+          }
+        }
+        throw new Error(errorMessage);
+      }
+      
+      const result = await res.json();
+      console.log('✅ Изображение успешно загружено:', result);
+      return result;
+    } catch (e: any) {
+      return rejectWithValue(e.message || 'Ошибка загрузки изображения');
+    }
+  }
+);
+
+// Переименование файла через API POST /api/v2/update_file/{uuid}
 export const renameFileAPI = createAsyncThunk(
   'fs/renameFileAPI',
   async (
@@ -428,27 +548,88 @@ export const renameFileAPI = createAsyncThunk(
     }
     
     try {
+      const fileNode = findNodeById(state.fs.root, uuid);
+      if (!fileNode || fileNode.type !== 'file') {
+        return rejectWithValue('Файл не найден');
+      }
+
+      if (!fileNode.url) {
+        return rejectWithValue('URL файла не найден');
+      }
+
+      // Загружаем файл по его URL
+      const fileResponse = await fetch(fileNode.url);
+      if (!fileResponse.ok) {
+        throw new Error('Не удалось загрузить файл для переименования');
+      }
+
+      const fileContent = await fileResponse.blob();
+      
+      // Используем новое имя, но сохраняем расширение из старого имени, если оно есть
+      const oldFileName = fileNode.name || 'file';
+      const oldExt = oldFileName.split('.').pop();
+      const newFileName = name.includes('.') ? name : `${name}.${oldExt || ''}`;
+      
+      // Определяем MIME тип
+      let mimeType = fileNode.mime || 'application/octet-stream';
+      if (!mimeType || mimeType === 'unknown') {
+        const ext = newFileName.split('.').pop()?.toLowerCase();
+        if (ext === 'pdf') mimeType = 'application/pdf';
+        else if (ext === 'md' || ext === 'markdown') mimeType = 'text/markdown';
+        else if (ext === 'txt') mimeType = 'text/plain';
+      }
+
+      // Создаем File из Blob
+      const file = new File([fileContent], newFileName, { type: mimeType });
+
+      // Получаем текущий уровень доступа файла
+      const access = typeof fileNode.access === 'number' ? (fileNode.access as 0 | 1) : 1;
+
+      // Создаем FormData и добавляем файл, имя и access
+      const form = new FormData();
+      form.append('file', file);
+      form.append('name', name);
+      form.append('access', String(access));
+
+      console.log('📤 Переименование файла через update_file:', {
+        uuid,
+        oldName: oldFileName,
+        newName: name,
+        access,
+        mimeType
+      });
+
       const res = await fetch(
         `https://api.alephtrade.com/backend_wiki/api/v2/update_file/${uuid}`,
         {
-          method: 'PATCH',
-          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ name })
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: form
         }
       );
+      
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data && data.message) || 'Ошибка переименования файла');
+        let errorMessage = 'Ошибка переименования файла';
+        if (data && data.message) {
+          if (Array.isArray(data.message)) {
+            errorMessage = data.message.join(', ');
+          } else if (typeof data.message === 'string') {
+            errorMessage = data.message;
+          }
+        }
+        throw new Error(errorMessage);
       }
+      
       dispatch(fetchTree());
       return await res.json();
     } catch (e: any) {
-      return rejectWithValue(e.message || 'Ошибка');
+      return rejectWithValue(e.message || 'Ошибка переименования файла');
     }
   }
 );
 
-// Изменение уровня доступа файла через API PUT /api/v2/update_file/{uuid}
+// Изменение уровня доступа файла через API POST /api/v2/update_file/{uuid}
 export const updateFileAccessAPI = createAsyncThunk(
   'fs/updateFileAccessAPI',
   async (
@@ -462,22 +643,74 @@ export const updateFileAccessAPI = createAsyncThunk(
     }
     
     try {
+      const fileNode = findNodeById(state.fs.root, uuid);
+      if (!fileNode || fileNode.type !== 'file') {
+        return rejectWithValue('Файл не найден');
+      }
+
+      if (!fileNode.url) {
+        return rejectWithValue('URL файла не найден');
+      }
+
+      // Загружаем файл по его URL
+      const fileResponse = await fetch(fileNode.url);
+      if (!fileResponse.ok) {
+        throw new Error('Не удалось загрузить файл для обновления доступа');
+      }
+
+      const fileContent = await fileResponse.blob();
+      const fileName = fileNode.name || 'file';
+      
+      // Определяем MIME тип
+      let mimeType = fileNode.mime || 'application/octet-stream';
+      if (!mimeType || mimeType === 'unknown') {
+        const ext = fileName.split('.').pop()?.toLowerCase();
+        if (ext === 'pdf') mimeType = 'application/pdf';
+        else if (ext === 'md' || ext === 'markdown') mimeType = 'text/markdown';
+        else if (ext === 'txt') mimeType = 'text/plain';
+      }
+
+      // Создаем File из Blob
+      const file = new File([fileContent], fileName, { type: mimeType });
+
+      // Создаем FormData и добавляем файл и access
+      const form = new FormData();
+      form.append('file', file);
+      form.append('access', String(access));
+
+      console.log('📤 Изменение уровня доступа файла через update_file:', {
+        uuid,
+        fileName,
+        access,
+        mimeType
+      });
+
       const res = await fetch(
         `https://api.alephtrade.com/backend_wiki/api/v2/update_file/${uuid}`,
         {
-          method: 'PATCH',
-          headers: getAuthHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ access })
+          method: 'POST',
+          headers: getAuthHeaders(),
+          body: form
         }
       );
+      
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data && data.message) || 'Ошибка изменения уровня доступа');
+        let errorMessage = 'Ошибка изменения уровня доступа';
+        if (data && data.message) {
+          if (Array.isArray(data.message)) {
+            errorMessage = data.message.join(', ');
+          } else if (typeof data.message === 'string') {
+            errorMessage = data.message;
+          }
+        }
+        throw new Error(errorMessage);
       }
+      
       dispatch(fetchTree());
       return await res.json();
     } catch (e: any) {
-      return rejectWithValue(e.message || 'Ошибка');
+      return rejectWithValue(e.message || 'Ошибка изменения уровня доступа');
     }
   }
 );
@@ -499,8 +732,6 @@ export const updateFileContentAPI = createAsyncThunk(
         return rejectWithValue('Файл не найден');
       }
 
-      const parentFolder = findParentFolder(state.fs.root, uuid);
-      const parentId = parentFolder && parentFolder.id !== 'root' ? parentFolder.id : undefined;
       const access = typeof fileNode.access === 'number' ? (fileNode.access as 0 | 1) : 1;
 
       let finalFileName = fileName || fileNode.name;
@@ -514,25 +745,15 @@ export const updateFileContentAPI = createAsyncThunk(
       const form = new FormData();
       form.append('file', blob, finalFileName);
       form.append('access', String(access));
-      if (parentId) {
-        form.append('parent_uuid', parentId);
-      }
 
-      const deleteRes = await fetch(
-        `https://api.alephtrade.com/backend_wiki/api/v2/delete_file/${uuid}`,
-        {
-          method: 'DELETE',
-          headers: getAuthHeaders()
-        }
-      );
+      console.log('📤 Обновление файла через update_file:', {
+        uuid,
+        fileName: finalFileName,
+        access
+      });
 
-      if (!deleteRes.ok) {
-        const errorData = await deleteRes.json().catch(() => ({}));
-        throw new Error((errorData && errorData.message) || 'Не удалось удалить предыдущую версию файла');
-      }
-
-      const uploadRes = await fetch(
-        'https://api.alephtrade.com/backend_wiki/api/v2/upload_file',
+      const updateRes = await fetch(
+        `https://api.alephtrade.com/backend_wiki/api/v2/update_file/${uuid}`,
         {
           method: 'POST',
           headers: getAuthHeaders(),
@@ -540,13 +761,13 @@ export const updateFileContentAPI = createAsyncThunk(
         }
       );
 
-      if (!uploadRes.ok) {
-        const errorData = await uploadRes.json().catch(() => ({}));
-        throw new Error((errorData && errorData.message) || 'Не удалось загрузить обновлённый файл');
+      if (!updateRes.ok) {
+        const errorData = await updateRes.json().catch(() => ({}));
+        throw new Error((errorData && errorData.message) || 'Не удалось обновить файл');
       }
 
       dispatch(fetchTree());
-      return await uploadRes.json();
+      return await updateRes.json();
     } catch (e: any) {
       return rejectWithValue(e.message || 'Ошибка сохранения файла');
     }
@@ -863,59 +1084,68 @@ export const searchAPI = createAsyncThunk(
       };
       
       // Создаем Map для уникальных файлов (по uuid_file)
-      const uniqueFiles = new Map<string, FsNode>();
+      // Используем Map с информацией о максимальном score для каждого файла
+      const uniqueFiles = new Map<string, { node: FsNode; maxScore: number }>();
       
+      // Сначала собираем все результаты с их scores
       for (const result of results) {
         const uuid = result.metadata?.uuid_file;
         if (!uuid) continue;
         
-        // Если файл уже добавлен, пропускаем
-        if (uniqueFiles.has(uuid)) continue;
+        const score = result.score || 0;
+        
+        // Если файл уже добавлен, обновляем score только если текущий выше
+        if (uniqueFiles.has(uuid)) {
+          const existing = uniqueFiles.get(uuid)!;
+          if (score > existing.maxScore) {
+            existing.maxScore = score;
+          }
+          continue; // Пропускаем, так как файл уже обработан
+        }
         
         // Пытаемся найти файл в дереве для получения полной информации
         let fileNode = root ? findFileInTree(root, uuid) : null;
         
         if (fileNode) {
           // Используем информацию из дерева (включая s3_url)
-          uniqueFiles.set(uuid, fileNode);
+          uniqueFiles.set(uuid, { node: fileNode, maxScore: score });
         } else {
           // Файл не найден в дереве, создаем FsNode из метаданных поиска
           const wikiUrl = result.metadata?.wiki_url;
           const filename = result.metadata?.filename;
           
-          // Извлекаем object_uuid из wiki_url (последняя часть пути)
-          // wiki_url имеет формат: https://wiki.alephtrade.com/{object_uuid}
-          let objectUuid = uuid; // По умолчанию используем uuid_file
+          // Используем wiki_url напрямую, если он есть (это уже полный URL)
+          let s3Url: string;
           if (wikiUrl) {
-            const urlParts = wikiUrl.split('/');
-            const lastPart = urlParts[urlParts.length - 1];
-            // Если последняя часть - это UUID (36 символов с дефисами), используем его как object_uuid
-            if (lastPart && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(lastPart)) {
-              objectUuid = lastPart;
+            s3Url = wikiUrl;
+          } else {
+            // Fallback: строим URL по старому формату, если wiki_url нет
+            let objectUuid = uuid;
+            
+            // Определяем расширение файла из filename или по умолчанию md
+            let extension = 'md';
+            if (filename) {
+              const filenameParts = filename.split('.');
+              if (filenameParts.length > 1) {
+                extension = filenameParts[filenameParts.length - 1].toLowerCase();
+              }
             }
+            s3Url = `https://storage.yandexcloud.net/wiki-docs/${objectUuid}.${extension}`;
           }
           
-          // Определяем расширение файла из filename или по умолчанию md
-          let extension = 'md';
+          // Определяем MIME тип из URL
           let mime = 'text/markdown';
-          if (filename) {
-            // Извлекаем расширение из имени файла
-            const filenameParts = filename.split('.');
-            if (filenameParts.length > 1) {
-              const fileExt = filenameParts[filenameParts.length - 1].toLowerCase();
-              extension = fileExt;
-              if (extension === 'pdf') mime = 'application/pdf';
-              else if (extension === 'md' || extension === 'markdown') mime = 'text/markdown';
-              else if (extension === 'txt') mime = 'text/plain';
-            }
+          const lowerUrl = s3Url.toLowerCase();
+          if (lowerUrl.endsWith('.pdf')) {
+            mime = 'application/pdf';
+          } else if (lowerUrl.endsWith('.md') || lowerUrl.endsWith('.markdown')) {
+            mime = 'text/markdown';
+          } else if (lowerUrl.endsWith('.txt')) {
+            mime = 'text/plain';
           }
           
           // Пытаемся извлечь имя файла
           let fileName = filename || uuid;
-          
-          // Строим S3 URL по формату из документации
-          // Формат: https://storage.yandexcloud.net/wiki-docs/{object_uuid}.{extension}
-          const s3Url = `https://storage.yandexcloud.net/wiki-docs/${objectUuid}.${extension}`;
           
           const fsNode: FsNode = {
             id: uuid,
@@ -926,12 +1156,23 @@ export const searchAPI = createAsyncThunk(
             access: response.access !== undefined ? response.access : undefined
           };
           
-          uniqueFiles.set(uuid, fsNode);
+          uniqueFiles.set(uuid, { node: fsNode, maxScore: score });
         }
       }
       
-      // Возвращаем массив уникальных файлов
-      return Array.from(uniqueFiles.values());
+      // Преобразуем Map в массив и сортируем по score (от большего к меньшему)
+      const uniqueFilesArray = Array.from(uniqueFiles.values())
+        .sort((a, b) => b.maxScore - a.maxScore) // Сортировка по убыванию score
+        .map(item => item.node);
+      
+      console.log('🔍 Результаты поиска после дедупликации:', {
+        totalResults: results.length,
+        uniqueFiles: uniqueFilesArray.length,
+        files: uniqueFilesArray.map(f => ({ id: f.id, name: f.name }))
+      });
+      
+      // Возвращаем массив уникальных файлов, отсортированных по релевантности
+      return uniqueFilesArray;
     } catch (e: any) {
       return rejectWithValue(e.message || 'Ошибка поиска');
     }
