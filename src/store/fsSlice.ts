@@ -77,6 +77,16 @@ const getAuthToken = (): string | null => {
   }
 };
 
+// Функция для получения значения куки по имени
+const getCookie = (name: string): string | null => {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) {
+    return parts.pop()?.split(';').shift() || null;
+  }
+  return null;
+};
+
 // Создаем заголовки с токеном авторизации
 const getAuthHeaders = (additionalHeaders: Record<string, string> = {}): Record<string, string> => {
   const token = getAuthToken();
@@ -1006,13 +1016,18 @@ export const logout = createAsyncThunk(
         method: 'GET',
         headers: getAuthHeaders({ 'Content-Type': 'application/json' })
       });
+      // Даже если запрос не успешен, считаем выход выполненным локально
+      // Очистка данных происходит в reducer
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error((data && data.message) || 'Ошибка выхода');
+        // Не выбрасываем ошибку, чтобы очистка данных все равно произошла
+        console.warn('Предупреждение при logout:', data.message || 'Ошибка выхода');
       }
-      return await res.json();
+      return await res.json().catch(() => ({ status: 'ok' }));
     } catch (e: any) {
-      return rejectWithValue(e.message || 'Ошибка');
+      // Даже при ошибке сети считаем выход выполненным локально
+      console.warn('Ошибка при logout запросе:', e.message || 'Ошибка');
+      return { status: 'ok' };
     }
   }
 );
@@ -1185,7 +1200,7 @@ const fsSlice = createSlice({
   reducers: {
     selectFolder(state, action: PayloadAction<string>) {
       state.selectedFolderId = action.payload;
-      state.selectedFileId = null;
+      // НЕ сбрасываем selectedFileId - оставляем выбранный файл открытым
     },
     selectFile(state, action: PayloadAction<string>) {
       state.selectedFileId = action.payload;
@@ -1205,6 +1220,10 @@ const fsSlice = createSlice({
       // Очищаем результаты при смене типа поиска
       state.searchResults = [];
       state.searchError = null;
+    },
+    setAuthToken(state, action: PayloadAction<string>) {
+      state.auth.token = action.payload;
+      state.auth.isAuthenticated = !!action.payload;
     },
     createFolder(state, action: PayloadAction<{ parentId?: string; name?: string }>) {
       const parentId = action.payload.parentId ?? state.selectedFolderId;
@@ -1273,6 +1292,11 @@ const fsSlice = createSlice({
       .addCase(getUser.fulfilled, (state, action) => {
         state.auth.loading = false;
         state.auth.user = action.payload;
+        // Обновляем токен из localStorage, если он там есть
+        const token = getAuthToken();
+        if (token) {
+          state.auth.token = token;
+        }
         state.auth.isAuthenticated = true;
       })
       .addCase(getUser.rejected, (state, action) => {
@@ -1294,8 +1318,36 @@ const fsSlice = createSlice({
         // Очищаем токен из localStorage
         try {
           localStorage.removeItem('auth_token');
+          console.log('✅ Токен удален из localStorage');
         } catch (error) {
-          console.error('Ошибка удаления токена:', error);
+          console.error('❌ Ошибка удаления токена:', error);
+        }
+        // Удаляем куку auid из Cookies
+        try {
+          // Функция для удаления куки
+          const deleteCookie = (name: string, domain?: string, path: string = '/') => {
+            const expires = 'expires=Thu, 01 Jan 1970 00:00:00 UTC';
+            const pathPart = `path=${path}`;
+            const domainPart = domain ? `domain=${domain};` : '';
+            document.cookie = `${name}=; ${expires}; ${pathPart}; ${domainPart}`;
+          };
+          
+          // Пробуем удалить куку разными способами
+          deleteCookie('auid');
+          deleteCookie('auid', '.alephtrade.com');
+          deleteCookie('auid', 'alephtrade.com');
+          deleteCookie('auid', '.wiki.alephtrade.com');
+          deleteCookie('auid', 'wiki.alephtrade.com');
+          
+          // Проверяем, удалилась ли кука
+          const auidAfter = getCookie('auid');
+          if (auidAfter) {
+            console.warn('⚠️ Кука auid все еще существует после попытки удаления:', auidAfter);
+          } else {
+            console.log('✅ Кука auid успешно удалена');
+          }
+        } catch (error) {
+          console.error('❌ Ошибка удаления куки auid:', error);
         }
         // Возвращаем action для дальнейшей обработки
         return state;
@@ -1303,6 +1355,46 @@ const fsSlice = createSlice({
       .addCase(logout.rejected, (state, action) => {
         state.auth.loading = false;
         state.auth.error = action.payload as string;
+        // Даже при ошибке logout очищаем данные авторизации локально
+        state.auth.user = null;
+        state.auth.token = null;
+        state.auth.isAuthenticated = false;
+        state.selectedFileId = '';
+        state.selectedFolderId = 'root';
+        // Очищаем токен из localStorage
+        try {
+          localStorage.removeItem('auth_token');
+          console.log('✅ Токен удален из localStorage (rejected)');
+        } catch (error) {
+          console.error('❌ Ошибка удаления токена:', error);
+        }
+        // Удаляем куку auid из Cookies
+        try {
+          // Функция для удаления куки
+          const deleteCookie = (name: string, domain?: string, path: string = '/') => {
+            const expires = 'expires=Thu, 01 Jan 1970 00:00:00 UTC';
+            const pathPart = `path=${path}`;
+            const domainPart = domain ? `domain=${domain};` : '';
+            document.cookie = `${name}=; ${expires}; ${pathPart}; ${domainPart}`;
+          };
+          
+          // Пробуем удалить куку разными способами
+          deleteCookie('auid');
+          deleteCookie('auid', '.alephtrade.com');
+          deleteCookie('auid', 'alephtrade.com');
+          deleteCookie('auid', '.wiki.alephtrade.com');
+          deleteCookie('auid', 'wiki.alephtrade.com');
+          
+          // Проверяем, удалилась ли кука
+          const auidAfter = getCookie('auid');
+          if (auidAfter) {
+            console.warn('⚠️ Кука auid все еще существует после попытки удаления (rejected):', auidAfter);
+          } else {
+            console.log('✅ Кука auid успешно удалена (rejected)');
+          }
+        } catch (error) {
+          console.error('❌ Ошибка удаления куки auid:', error);
+        }
       })
       // Search cases
       .addCase(searchAPI.pending, (state) => {
@@ -1321,7 +1413,7 @@ const fsSlice = createSlice({
   }
 });
 
-export const { selectFolder, selectFile, setSearch, setSearchType, createFolder, renameItem } = fsSlice.actions;
+export const { selectFolder, selectFile, setSearch, setSearchType, createFolder, renameItem, setAuthToken } = fsSlice.actions;
 export default fsSlice.reducer;
 
 

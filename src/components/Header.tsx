@@ -1,6 +1,6 @@
 import styled from 'styled-components';
 import { useDispatch, useSelector } from 'react-redux';
-import { setSearch, setSearchType, uploadFileAPI, searchAPI } from '@/store/fsSlice';
+import { setSearch, setSearchType, uploadFileAPI, searchAPI, selectFile } from '@/store/fsSlice';
 import type { RootState } from '@/store/store';
 import type { SearchType } from '@/store/fsSlice';
 import logoSrc from '/icon/featherIcon.svg';
@@ -8,13 +8,13 @@ import addIcon from '/icon/plus.png';
 import uploadIcon from '/icon/download.png';
 import themeIcon from '/icon/theme.png';
 import userIcon from '/icon/user.png';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useThemeMode } from '@/styles/ThemeMode';
 import React, { useRef } from 'react';
-import { AuthModal } from './AuthModal';
 import { UserDropdown } from './UserDropdown';
 import { CreateFolderModal } from './CreateFolderModal';
 import { Tooltip } from './Tooltip';
+import type { FsNode } from '@/store/fsSlice';
 
 const Bar = styled.div`
   height: 56px;
@@ -26,8 +26,10 @@ const Bar = styled.div`
   border-bottom: 1px solid ${({ theme }) => theme.colors.border};
   width: 100%;
   max-width: 100%;
-  overflow: hidden;
+  overflow: visible;
   flex-shrink: 0;
+  position: relative;
+  z-index: 100;
 
   /* Мобильные устройства */
   @media (max-width: 768px) {
@@ -86,7 +88,8 @@ const SearchContainer = styled.div`
   align-items: center;
   gap: 12px;
   min-width: 0;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
   
   @media (max-width: 768px) {
     gap: 8px;
@@ -188,6 +191,13 @@ const SearchToggleText = styled.span`
   }
 `;
 
+const SearchWrapper = styled.div`
+  flex: 1;
+  position: relative;
+  min-width: 0;
+  width: 100%;
+`;
+
 const Search = styled.input`
   flex: 1;
   height: 32px;
@@ -225,6 +235,150 @@ const Search = styled.input`
     padding: 0 10px;
     font-size: 13px;
     min-width: 0;
+  }
+`;
+
+const SearchDropdown = styled.div<{ $isOpen: boolean; $top?: number; $left?: number; $width?: number }>`
+  position: fixed;
+  top: ${({ $top }) => ($top !== undefined ? `${$top}px` : 'auto')};
+  left: ${({ $left }) => ($left !== undefined ? `${$left}px` : 'auto')};
+  width: ${({ $width }) => ($width !== undefined ? `${$width}px` : 'auto')};
+  background: ${({ theme }) => theme.colors.surface};
+  border: 1px solid ${({ theme }) => theme.colors.border};
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 10000;
+  display: ${({ $isOpen }) => ($isOpen ? 'block' : 'none')};
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  
+  /* Скрываем скроллбар на WebKit браузерах, но оставляем функциональность */
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  &::-webkit-scrollbar-track {
+    background: ${({ theme }) => theme.colors.surfaceAlt};
+  }
+  
+  &::-webkit-scrollbar-thumb {
+    background: ${({ theme }) => theme.colors.border};
+    border-radius: 4px;
+    
+    &:hover {
+      background: ${({ theme }) => theme.mode === 'dark' ? 'rgba(255, 255, 255, 0.3)' : 'rgba(0, 0, 0, 0.3)'};
+    }
+  }
+  
+  @media (max-width: 768px) {
+    max-height: 300px;
+    border-radius: 6px;
+  }
+  
+  @media (max-width: 480px) {
+    max-height: 250px;
+  }
+`;
+
+const SearchResultItem = styled.div`
+  padding: 12px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
+  transition: background-color 0.15s ease;
+  
+  &:last-child {
+    border-bottom: none;
+  }
+  
+  &:hover {
+    background: ${({ theme }) => theme.colors.surfaceAlt};
+  }
+  
+  &:active {
+    opacity: 0.9;
+  }
+  
+  @media (max-width: 768px) {
+    padding: 14px 16px;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 12px 14px;
+  }
+`;
+
+const SearchResultTitle = styled.div`
+  font-size: 14px;
+  font-weight: 500;
+  color: ${({ theme }) => theme.colors.text};
+  margin-bottom: 4px;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  
+  @media (max-width: 480px) {
+    font-size: 13px;
+  }
+`;
+
+const SearchResultDescription = styled.div`
+  font-size: 12px;
+  color: ${({ theme }) => theme.colors.textMuted};
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  
+  @media (max-width: 480px) {
+    font-size: 11px;
+  }
+`;
+
+const SearchLoading = styled.div`
+  padding: 16px;
+  text-align: center;
+  color: ${({ theme }) => theme.colors.textMuted};
+  font-size: 13px;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  position: relative;
+  z-index: 10001;
+  background: ${({ theme }) => theme.colors.surface};
+`;
+
+const SearchEmpty = styled.div`
+  padding: 16px;
+  text-align: center;
+  color: ${({ theme }) => theme.colors.textMuted};
+  font-size: 13px;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  position: relative;
+  z-index: 10001;
+  background: ${({ theme }) => theme.colors.surface};
+`;
+
+const SearchViewAll = styled.div`
+  padding: 12px 16px;
+  border-top: 1px solid ${({ theme }) => theme.colors.border};
+  text-align: center;
+  cursor: pointer;
+  color: ${({ theme }) => theme.colors.primary};
+  font-size: 13px;
+  font-weight: 500;
+  transition: background-color 0.15s ease;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  
+  &:hover {
+    background: ${({ theme }) => theme.colors.surfaceAlt};
+  }
+  
+  &:active {
+    opacity: 0.9;
   }
 `;
 
@@ -589,51 +743,98 @@ interface HeaderProps {
   setSidebarOpen: (open: boolean) => void;
   uploadOpen?: boolean;
   setUploadOpen?: (open: boolean) => void;
-  authOpen?: boolean;
-  setAuthOpen?: (open: boolean) => void;
 }
 
 export function Header({ 
   sidebarOpen, 
   setSidebarOpen,
   uploadOpen: externalUploadOpen,
-  setUploadOpen: externalSetUploadOpen,
-  authOpen: externalAuthOpen,
-  setAuthOpen: externalSetAuthOpen
+  setUploadOpen: externalSetUploadOpen
 }: HeaderProps) {
   const dispatch: any = useDispatch();
   const search = useSelector((s: RootState) => s.fs.search);
   const searchType = useSelector((s: RootState) => s.fs.searchType);
+  const searchResults = useSelector((s: RootState) => s.fs.searchResults);
+  const searchLoading = useSelector((s: RootState) => s.fs.searchLoading);
+  const root = useSelector((s: RootState) => s.fs.root);
   const selectedFolderId = useSelector((s: RootState) => s.fs.selectedFolderId);
   const { mode, toggle } = useThemeMode();
   const { auth } = useSelector((s: RootState) => s.fs);
   
   // Используем внешние состояния если они переданы, иначе внутренние
   const [internalUploadOpen, setInternalUploadOpen] = useState(false);
-  const [internalAuthOpen, setInternalAuthOpen] = useState(false);
   
   const uploadOpen = externalUploadOpen !== undefined ? externalUploadOpen : internalUploadOpen;
   const setUploadOpen = externalSetUploadOpen || setInternalUploadOpen;
-  const authOpen = externalAuthOpen !== undefined ? externalAuthOpen : internalAuthOpen;
-  const setAuthOpen = externalSetAuthOpen || setInternalAuthOpen;
   
   // Принудительно закрываем dropdown при logout
   useEffect(() => {
     if (!auth.isAuthenticated || !auth.token) {
       setUserDropdownOpen(false);
-      // Принудительно обновляем состояние для перерисовки
-      setAuthOpen(false);
     }
-  }, [auth.isAuthenticated, auth.token, setAuthOpen]);
+  }, [auth.isAuthenticated, auth.token]);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadAccess, setUploadAccess] = useState<0 | 1>(1);
   const [showCreateFolderModal, setShowCreateFolderModal] = useState(false);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0, width: 0 });
   const fileInput = useRef<HTMLInputElement>(null);
   const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const avatarRef = useRef<HTMLButtonElement | null>(null);
+  const searchWrapperRef = useRef<HTMLDivElement | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Функция для локального поиска по дереву
+  const findAllFiles = useCallback((node: FsNode, query: string): FsNode[] => {
+    if (!node) return [];
+    
+    let results: FsNode[] = [];
+    const searchQuery = query.trim().toLowerCase();
+    
+    if (!searchQuery) return [];
+    
+    // Если это файл, проверяем название
+    if (node.type === 'file') {
+      if (node.name && typeof node.name === 'string') {
+        const fileName = node.name.toLowerCase();
+        if (fileName.includes(searchQuery)) {
+          results.push(node);
+        }
+      }
+    }
+    
+    // Рекурсивно ищем в дочерних элементах
+    if (node.children && Array.isArray(node.children)) {
+      for (const child of node.children) {
+        if (child) {
+          const childResults = findAllFiles(child, query);
+          results = results.concat(childResults);
+        }
+      }
+    }
+    
+    return results;
+  }, []);
+
+  // Локальные результаты поиска
+  const localSearchResults = useMemo(() => {
+    if (searchType === 'local' && search && search.trim().length > 0 && root) {
+      return findAllFiles(root, search).slice(0, 5); // Ограничиваем до 5 результатов
+    }
+    return [];
+  }, [searchType, search, root, findAllFiles]);
+
+  // Объединенные результаты для отображения
+  const displayResults = useMemo(() => {
+    if (searchType === 'ai') {
+      return searchResults.slice(0, 5); // Ограничиваем до 5 результатов
+    } else {
+      return localSearchResults;
+    }
+  }, [searchType, searchResults, localSearchResults]);
 
   // Debounced функция для поиска (только для AI поиска)
   const handleSearchChange = useCallback((value: string) => {
@@ -657,6 +858,62 @@ export function Header({
       }, 500);
     }
   }, [dispatch, searchType]);
+
+  // Обработчик клика на результат поиска
+  const handleResultClick = useCallback((node: FsNode) => {
+    if (node.type === 'file') {
+      dispatch(selectFile(node.id));
+      dispatch(setSearch('')); // Очищаем поиск после выбора
+      setSearchFocused(false);
+    }
+  }, [dispatch]);
+
+  // Обработчик клика на "Все результаты"
+  const handleViewAll = useCallback(() => {
+    // Очищаем фокус, чтобы скрыть выпадающий список
+    setSearchFocused(false);
+    // Поиск уже активен, результаты будут показаны в FilesList
+  }, []);
+
+  // Обновляем позицию выпадающего окна
+  useEffect(() => {
+    const updateDropdownPosition = () => {
+      if (searchInputRef.current) {
+        const rect = searchInputRef.current.getBoundingClientRect();
+        setDropdownPosition({
+          top: rect.bottom + 4,
+          left: rect.left,
+          width: rect.width
+        });
+      }
+    };
+
+    if (searchFocused && search && search.trim().length > 0) {
+      updateDropdownPosition();
+      window.addEventListener('scroll', updateDropdownPosition, true);
+      window.addEventListener('resize', updateDropdownPosition);
+      return () => {
+        window.removeEventListener('scroll', updateDropdownPosition, true);
+        window.removeEventListener('resize', updateDropdownPosition);
+      };
+    }
+  }, [searchFocused, search]);
+
+  // Закрываем выпадающий список при клике вне его
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchWrapperRef.current && !searchWrapperRef.current.contains(event.target as Node)) {
+        setSearchFocused(false);
+      }
+    };
+
+    if (searchFocused) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [searchFocused]);
 
   // Очищаем таймер при размонтировании
   useEffect(() => {
@@ -704,21 +961,62 @@ export function Header({
         <BrandTitle></BrandTitle>
       </Brand>
       <SearchContainer>
-        <Search
-          value={search}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          placeholder={searchType === 'local' ? 'Поиск по названию...' : 'AI поиск по контексту...'}
-        />
+        <SearchWrapper ref={searchWrapperRef}>
+          <Search
+            ref={searchInputRef}
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+            onFocus={() => setSearchFocused(true)}
+            placeholder={searchType === 'local' ? 'Поиск...' : 'Поиск...'}
+          />
+          <SearchDropdown 
+            $isOpen={!!(searchFocused && search && search.trim().length > 0)}
+            $top={dropdownPosition.top}
+            $left={dropdownPosition.left}
+            $width={dropdownPosition.width}
+          >
+            {searchLoading ? (
+              <SearchLoading>Поиск...</SearchLoading>
+            ) : displayResults.length > 0 ? (
+              <>
+                {displayResults.map((result) => (
+                  <SearchResultItem
+                    key={result.id}
+                    onClick={() => handleResultClick(result)}
+                  >
+                    <SearchResultTitle>{result.name}</SearchResultTitle>
+                    {result.type === 'file' && (
+                      <SearchResultDescription>
+                        {result.mime === 'text/markdown' || result.url?.toLowerCase().endsWith('.md')
+                          ? 'Markdown документ'
+                          : result.mime === 'application/pdf'
+                          ? 'PDF документ'
+                          : 'Файл'}
+                      </SearchResultDescription>
+                    )}
+                  </SearchResultItem>
+                ))}
+                {(searchType === 'ai' ? searchResults.length : localSearchResults.length) > 5 && (
+                  <SearchViewAll onClick={handleViewAll}>
+                    Все результаты &gt;
+                  </SearchViewAll>
+                )}
+              </>
+            ) : (
+              <SearchEmpty>Ничего не найдено</SearchEmpty>
+            )}
+          </SearchDropdown>
+        </SearchWrapper>
         <SearchToggleWrapper>
-          <Tooltip text={searchType === 'local' ? 'Переключить на AI поиск' : 'Переключить на поиск по названию'}>
+          <Tooltip text={searchType === 'local' ? 'Переключить на AI поиск' : 'Переключить на поиск без AI'}>
             <SearchToggleSwitch
               $active={searchType === 'ai'}
               onClick={() => dispatch(setSearchType(searchType === 'local' ? 'ai' : 'local'))}
-              aria-label={searchType === 'local' ? 'Переключить на AI поиск' : 'Переключить на поиск по названию'}
+              aria-label={searchType === 'local' ? 'Переключить на AI поиск' : 'Переключить на поиск без AI'}
             />
           </Tooltip>
           <SearchToggleText>
-            {searchType === 'local' ? 'Название' : 'AI'}
+            {searchType === 'local' ? 'AI' : 'AI'}
           </SearchToggleText>
         </SearchToggleWrapper>
       </SearchContainer>
@@ -766,7 +1064,9 @@ export function Header({
               if (auth.user && auth.isAuthenticated && auth.token) {
                 setUserDropdownOpen(!userDropdownOpen);
               } else {
-                setAuthOpen(true);
+                // Редиректим на OAuth страницу вместо открытия модального окна
+                const redirectUri = encodeURIComponent(window.location.origin);
+                window.location.href = `https://oauth.alephtrade.com/?redirect_uri=${redirectUri}`;
               }
             }} 
             title={auth.user && auth.isAuthenticated && auth.token ? `${auth.user.name} ${auth.user.second_name}` : 'Войти'}
@@ -832,8 +1132,6 @@ export function Header({
           </UploadModal>
         </UploadModalBg>
       )}
-      
-      <AuthModal isOpen={authOpen} onClose={() => setAuthOpen(false)} />
     </Bar>
   );
 }

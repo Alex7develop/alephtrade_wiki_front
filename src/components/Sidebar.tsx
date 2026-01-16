@@ -253,16 +253,26 @@ function TreeNode({
           boxShadow: dropTargetId === node.id ? 'inset 0 0 0 2px #16aaff' : undefined,
           background: dropTargetId === node.id ? 'rgba(22,170,255,0.11)' : undefined,
         }}
+        onMouseDown={(e) => {
+          // Для папок делаем toggle по одному клику максимально "раньше",
+          // чтобы не требовался второй клик из‑за особенностей click/dblclick.
+          if (e.button !== 0) return; // только ЛКМ
+          if (isEditing) return;
+          if (isFolder) {
+            e.preventDefault();
+            toggle(node.id);
+            dispatch(selectFolder(node.id));
+          }
+        }}
         onClick={(e) => {
           // Не обрабатываем клик, если идет редактирование
           if (isEditing) {
             e.stopPropagation();
             return;
           }
-          if (isFolder) {
-            toggle(node.id);
-            dispatch(selectFolder(node.id));
-          } else {
+          // Для папок toggle уже обработали в onMouseDown
+          if (isFolder) return;
+          {
             dispatch(selectFile(node.id));
           }
         }}

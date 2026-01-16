@@ -2,13 +2,12 @@ import styled from 'styled-components';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation, useNavigate, Routes, Route } from 'react-router-dom';
 import type { RootState } from '@/store/store';
-import { fetchTree, getUser, selectFile, selectFolder } from '@/store/fsSlice';
-import { useEffect, useState } from 'react';
+import { fetchTree, getUser, selectFile, selectFolder, setAuthToken } from '@/store/fsSlice';
+import { useEffect, useState, useRef } from 'react';
 import { Header } from '@/components/Header';
 import { Sidebar } from '@/components/Sidebar';
 import { Preview } from '@/components/Preview';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
-import { AuthModal } from '@/components/AuthModal';
 import { VideoSharePage } from '@/components/VideoSharePage';
 
 const Layout = styled.div`
@@ -51,7 +50,7 @@ const HeaderArea = styled.header`
   background: ${({ theme }) => theme.colors.surface};
   width: 100%;
   max-width: 100%;
-  overflow: hidden;
+  overflow: visible;
   position: relative;
   z-index: 100;
 `;
@@ -181,6 +180,19 @@ function isVideoNode(node: any): boolean {
   );
 }
 
+// Функция для получения значения куки по имени
+function getCookie(name: string): string | null {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) {
+    return parts.pop()?.split(';').shift() || null;
+  }
+  return null;
+}
+
+// Флаг на уровне модуля для предотвращения повторных вызовов
+let oauthCallbackProcessed = false;
+
 export default function App() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -290,14 +302,66 @@ export default function App() {
     }
   }, [auth.isAuthenticated, auth.token, isInitialized, hasLoadedTree, dispatch]);
 
-  // Обрабатываем ошибку авторизации при загрузке дерева
+  // Обрабатываем возврат с OAuth (проверка куки auid при загрузке)
   useEffect(() => {
-    if (error === 'Требуется авторизация' || error?.includes('авторизац')) {
-      // Если получили ошибку авторизации - показываем модальное окно
-      setShowAuthModal(true);
-      setHasLoadedTree(false);
+    // Защита от повторных вызовов
+    if (oauthCallbackProcessed) return;
+    
+    const auid = getCookie('auid');
+    
+    if (auid) {
+      oauthCallbackProcessed = true;
+      console.log('Кука auid найдена при возврате с OAuth:', auid);
+      
+      // Выполняем запрос на API auth_sso
+      fetch('https://api.alephtrade.com/backend_wiki/api/v2/auth_sso', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ auid }),
+      })
+        .then((response) => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then((data) => {
+          console.log('Ответ от auth_sso:', data);
+          
+          // Сохраняем токен в localStorage, если он есть в ответе
+          if (data.token) {
+            try {
+              localStorage.setItem('auth_token', data.token);
+              console.log('Токен сохранен в localStorage');
+              
+              // Сразу обновляем токен в Redux store для мгновенного обновления UI
+              // Это нужно для того, чтобы иконка личного кабинета обновилась сразу
+              dispatch(setAuthToken(data.token));
+              
+              // После сохранения токена сразу обновляем состояние авторизации
+              // и загружаем данные пользователя и дерево
+              dispatch(getUser(data.token) as any).then((userResult: any) => {
+                if (userResult.type && userResult.type.includes('fulfilled')) {
+                  // После успешной загрузки пользователя загружаем дерево
+                  dispatch(fetchTree() as any).then((treeResult: any) => {
+                    if (treeResult.type && treeResult.type.includes('fulfilled')) {
+                      setHasLoadedTree(true);
+                    }
+                  });
+                }
+              });
+            } catch (error) {
+              console.error('Ошибка при сохранении токена в localStorage:', error);
+            }
+          }
+        })
+        .catch((error) => {
+          console.error('Ошибка при запросе auth_sso:', error);
+        });
     }
-  }, [error]);
+  }, [dispatch]);
 
   // Восстанавливаем авторизацию при загрузке приложения
   useEffect(() => {
@@ -349,7 +413,6 @@ export default function App() {
   // Передадим эту функцию через ref или создадим контекст
   // Пока что создадим простой способ через событие или состояние
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showAuthModal, setShowAuthModal] = useState(false);
 
   return (
     <Routes>
@@ -364,8 +427,6 @@ export default function App() {
               setSidebarOpen={setSidebarOpen}
               uploadOpen={showUploadModal}
               setUploadOpen={setShowUploadModal}
-              authOpen={showAuthModal}
-              setAuthOpen={setShowAuthModal}
             />
           </HeaderArea>
           <MobileOverlay $sidebarOpen={sidebarOpen} onClick={() => setSidebarOpen(false)} />
@@ -390,12 +451,6 @@ export default function App() {
             sidebarOpen={sidebarOpen}
             setSidebarOpen={setSidebarOpen}
             onUploadClick={() => setShowUploadModal(true)}
-          />
-          <AuthModal
-            isOpen={showAuthModal}
-            onClose={() => {
-              setShowAuthModal(false);
-            }}
           />
         </Layout>
         }

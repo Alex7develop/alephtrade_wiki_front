@@ -40,6 +40,11 @@ function removeFileExtension(name: string): string {
   return name.substring(0, lastDotIndex);
 }
 
+function noCache(url: string) {
+  const u = new URL(url);
+  u.searchParams.set('_ts', Date.now().toString());
+  return u.toString();
+}
 // Тип для сохранения оригинальных блоков изображений, которые заменяем заглушками
 interface ImagePlaceholder {
   placeholder: string;
@@ -177,7 +182,7 @@ const FileName = styled.div`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 400px;
+  max-width: 500px;
   
   @media (max-width: 768px) {
     font-size: 13px;
@@ -654,11 +659,141 @@ const InlineEditorButton = styled.button<{ $primary?: boolean }>`
   `}
 `;
 
+const PdfContainer = styled.div`
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  position: relative;
+  
+  /* Мобильные устройства */
+  @media (max-width: 768px) {
+    min-height: calc(100vh - 200px);
+    height: calc(100vh - 200px);
+    /* На мобильных убираем overflow у контейнера, чтобы embed мог скроллиться внутри */
+    overflow: visible;
+  }
+  
+  @media (max-width: 480px) {
+    min-height: calc(100vh - 180px);
+    height: calc(100vh - 180px);
+    overflow: visible;
+  }
+`;
+
 const PdfViewer = styled.iframe`
   width: 100%;
   height: 100%;
+  min-height: 600px;
   border: none;
   background: white;
+  display: block;
+  
+  /* Мобильные устройства */
+  @media (max-width: 768px) {
+    min-height: calc(100vh - 200px);
+    height: calc(100vh - 200px);
+  }
+  
+  @media (max-width: 480px) {
+    min-height: calc(100vh - 180px);
+    height: calc(100vh - 180px);
+  }
+`;
+
+const PdfObject = styled.object`
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
+  border: none;
+  display: block;
+  
+  /* Мобильные устройства */
+  @media (max-width: 768px) {
+    min-height: calc(100vh - 200px);
+    height: calc(100vh - 200px);
+  }
+  
+  @media (max-width: 480px) {
+    min-height: calc(100vh - 180px);
+    height: calc(100vh - 180px);
+  }
+`;
+
+const PdfEmbed = styled.embed`
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
+  border: none;
+  display: block;
+  /* Важно для iOS: убираем ограничения скролла */
+  overflow: visible;
+  
+  /* Мобильные устройства - используем фиксированную высоту для правильного скролла */
+  @media (max-width: 768px) {
+    min-height: calc(100vh - 200px);
+    height: calc(100vh - 200px);
+    /* На iOS нужно использовать абсолютное позиционирование для правильного скролла */
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+  }
+  
+  @media (max-width: 480px) {
+    min-height: calc(100vh - 180px);
+    height: calc(100vh - 180px);
+  }
+`;
+
+const PdfOpenButton = styled.button`
+  display: none;
+  width: 100%;
+  padding: 14px 20px;
+  margin-top: 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-size: 15px;
+  font-weight: 500;
+  font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  transition: all 0.2s ease;
+  background: ${({ theme }) => theme.colors.primary};
+  color: white;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  
+  &:hover {
+    background: ${({ theme }) => theme.colors.primaryAccent};
+  }
+  
+  &:active {
+    transform: scale(0.98);
+    opacity: 0.9;
+  }
+  
+  /* Показываем только на мобильных устройствах */
+  @media (max-width: 768px) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 12px 16px;
+    font-size: 14px;
+  }
+`;
+
+const PdfOpenIcon = styled.svg`
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+  flex-shrink: 0;
 `;
 
 const VideoWrapper = styled.div`
@@ -1126,13 +1261,20 @@ export function Preview() {
   }
 
   // Ищем узел по selectedFileId или selectedFolderId
-  // Приоритет у selectedFileId (если выбран файл)
+  // Приоритет у selectedFileId (если выбран файл) - файл остается открытым даже при клике на папку
   // Сначала ищем в дереве, затем в результатах поиска
-  let node = find(root, selectedFileId || selectedFolderId);
+  let node: any = null;
   
-  // Если файл не найден в дереве, ищем в результатах поиска
-  if (!node && selectedFileId && Array.isArray(searchResults)) {
-    node = searchResults.find((item: any) => item.id === selectedFileId) || null;
+  // Если выбран файл, всегда показываем его, даже если выбрана папка
+  if (selectedFileId) {
+    node = find(root, selectedFileId);
+    // Если файл не найден в дереве, ищем в результатах поиска
+    if (!node && Array.isArray(searchResults)) {
+      node = searchResults.find((item: any) => item.id === selectedFileId) || null;
+    }
+  } else if (selectedFolderId) {
+    // Если файл не выбран, но выбрана папка - показываем папку
+    node = find(root, selectedFolderId);
   }
   
   // Сбрасываем режим редактирования имени при смене файла или при выходе
@@ -1163,7 +1305,7 @@ export function Preview() {
         
         console.log('Начинаем загрузку файла для редактирования:', node.url);
         
-        fetch(node.url, { signal: abortController.signal })
+        fetch(noCache(node.url), { signal: abortController.signal, cache: 'no-store', })
           .then((r) => {
             if (!r.ok) throw new Error('Не удалось загрузить файл');
             return r.text();
@@ -1231,7 +1373,7 @@ export function Preview() {
       setMdError(null);
       setMdText('');
       setMdHtml('');
-      fetch(mdUrl)
+      fetch(noCache(mdUrl), { cache: 'no-store' })
         .then((r) => {
           if (!r.ok) throw new Error('Не удалось загрузить Markdown');
           return r.text();
@@ -1999,7 +2141,40 @@ export function Preview() {
                 />
               </VideoWrapper>
             ) : isPdf && node.url ? (
-              <PdfViewer src={node.url} title={node.name} />
+              <>
+                <PdfContainer>
+                  {/* На мобильных устройствах используем embed для лучшей поддержки скролла на iOS */}
+                  {isMobile ? (
+                    <PdfEmbed
+                      src={`${noCache(node.url)}#toolbar=1&navpanes=1&scrollbar=1`}
+                      type="application/pdf"
+                      title={node.name}
+                    />
+                  ) : (
+                    <PdfObject
+                      data={`${noCache(node.url)}#toolbar=1&navpanes=1&scrollbar=1`}
+                      type="application/pdf"
+                      title={node.name}
+                    >
+                      <p style={{ padding: '20px', textAlign: 'center', color: theme.colors.text }}>
+                        Ваш браузер не поддерживает просмотр PDF. 
+                        <a href={node.url} target="_blank" rel="noopener noreferrer" style={{ color: theme.colors.primary, marginLeft: '8px' }}>
+                          Открыть в новой вкладке
+                        </a>
+                      </p>
+                    </PdfObject>
+                  )}
+                </PdfContainer>
+                {/* Кнопка для открытия PDF в новой вкладке на мобильных */}
+                {isMobile && node.url && (
+                  <PdfOpenButton onClick={() => window.open(node.url, '_blank')}>
+                    <PdfOpenIcon viewBox="0 0 24 24">
+                      <path d="M14,3V5H17.59L7.76,14.83L9.17,16.24L19,6.41V10H21V3M19,19H5V5H12V3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V12H19V19Z" />
+                    </PdfOpenIcon>
+                    Открыть файл полностью
+                  </PdfOpenButton>
+                )}
+              </>
             ) : isMd ? (
               isEditingContent ? (
                 <InlineEditorWrap>
