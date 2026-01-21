@@ -348,6 +348,9 @@ export default function App() {
                   dispatch(fetchTree() as any).then((treeResult: any) => {
                     if (treeResult.type && treeResult.type.includes('fulfilled')) {
                       setHasLoadedTree(true);
+                      // После загрузки дерева сбрасываем флаг проверки доступа,
+                      // чтобы документ из URL мог открыться после авторизации
+                      setPrivateAccessChecked(false);
                     }
                   });
                 }
@@ -371,17 +374,90 @@ export default function App() {
     }
   }, [auth.token, auth.user, dispatch]);
 
-  // Обрабатываем UUID из URL при загрузке дерева (однократно для текущего uuid)
+  // Флаг для отслеживания проверки доступа к приватному документу
+  const [privateAccessChecked, setPrivateAccessChecked] = useState(false);
+
+  // Обрабатываем UUID из URL при загрузке дерева
   useEffect(() => {
-    if (!uuid || !hasLoadedTree || !root || !root.children || root.children.length === 0) return;
-    const node = findNodeByShareId(root, uuid);
-    if (!node) return;
-    if (node.type === 'file') {
-      dispatch(selectFile(node.id));
-    } else if (node.type === 'folder' && node.id !== 'root') {
-      dispatch(selectFolder(node.id));
+    if (!uuid || !hasLoadedTree || !root || !root.children || root.children.length === 0) {
+      return;
     }
-  }, [uuid, hasLoadedTree, root, dispatch]);
+    
+    console.log('🔍 Проверка доступа к документу:', {
+      uuid,
+      hasLoadedTree,
+      oauthCallbackProcessed,
+      privateAccessChecked
+    });
+    
+    // Пропускаем проверку, если уже обрабатывали возврат с OAuth
+    if (oauthCallbackProcessed) {
+      console.log('✅ Возврат с OAuth, открываем документ');
+      // После возврата с OAuth просто открываем документ
+      const node = findNodeByShareId(root, uuid);
+      if (node) {
+        if (node.type === 'file') {
+          dispatch(selectFile(node.id));
+        } else if (node.type === 'folder' && node.id !== 'root') {
+          dispatch(selectFolder(node.id));
+        }
+      }
+      return;
+    }
+    
+    const node = findNodeByShareId(root, uuid);
+    const hasAuid = !!getCookie('auid');
+    const hasToken = !!localStorage.getItem('auth_token');
+    
+    console.log('🔍 Результаты проверки:', {
+      nodeFound: !!node,
+      nodeAccess: node?.access,
+      hasAuid,
+      hasToken,
+      privateAccessChecked
+    });
+    
+    // Если документ не найден в публичном дереве и нет авторизации - редиректим на OAuth
+    if (!node && !hasAuid && !hasToken && !privateAccessChecked) {
+      setPrivateAccessChecked(true);
+      const redirectUri = encodeURIComponent(`${window.location.origin}/${uuid}`);
+      console.log('🔒 Документ не найден в публичном дереве, требуется авторизация, редирект на OAuth');
+      window.location.href = `https://oauth.alephtrade.com/?redirect_uri=${redirectUri}`;
+      return;
+    }
+    
+    // Если документ найден - проверяем его доступ
+    if (node) {
+      // Проверяем, является ли документ приватным (access: 1 = приватный)
+      const isPrivate = node.access === 1;
+      
+      console.log('🔍 Проверка приватности документа:', {
+        isPrivate,
+        access: node.access,
+        hasAuid,
+        hasToken
+      });
+      
+      // Если документ приватный и пользователь не авторизован - редиректим на OAuth
+      if (isPrivate && !hasAuid && !hasToken && !privateAccessChecked) {
+        setPrivateAccessChecked(true);
+        const redirectUri = encodeURIComponent(`${window.location.origin}/${uuid}`);
+        console.log('🔒 Приватный документ требует авторизации, редирект на OAuth');
+        window.location.href = `https://oauth.alephtrade.com/?redirect_uri=${redirectUri}`;
+        return;
+      }
+      
+      // Если документ публичный или пользователь авторизован - открываем документ
+      console.log('✅ Доступ разрешен, открываем документ');
+      if (node.type === 'file') {
+        dispatch(selectFile(node.id));
+      } else if (node.type === 'folder' && node.id !== 'root') {
+        dispatch(selectFolder(node.id));
+      }
+      
+      setPrivateAccessChecked(true);
+    }
+  }, [uuid, hasLoadedTree, root, dispatch, privateAccessChecked]);
 
   // Синхронизируем URL при изменении selectedFileId или selectedFolderId
   useEffect(() => {

@@ -937,7 +937,7 @@ const RootSubtitle = styled.p`
 
 const MdWrap = styled.div`
   height: 100%;
-  overflow: auto;
+  // overflow: auto;
   background: ${({ theme }) => theme.mode === 'light' ? '#ffffff' : theme.colors.surface};
   border-radius: ${({ theme }) => theme.radius.sm};
   // border: 1px solid ${({ theme }) => theme.colors.border};
